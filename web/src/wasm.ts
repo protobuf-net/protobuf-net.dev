@@ -22,9 +22,11 @@ let interopPromise: Promise<Interop> | undefined;
  */
 export function loadInterop(): Promise<Interop> {
   interopPromise ??= (async () => {
-    const { dotnet } = (await import(
-      /* @vite-ignore */ new URL('/_framework/dotnet.js', import.meta.url).href
-    )) as { dotnet: DotnetHost };
+    // resolved against the document, not this module: the bundle lives under assets/, whereas
+    // _framework sits beside index.html. BASE_URL keeps this correct whether the site is served
+    // from a domain root or a subpath.
+    const runtimeUrl = new URL(`${import.meta.env.BASE_URL}_framework/dotnet.js`, document.baseURI).href;
+    const { dotnet } = (await import(/* @vite-ignore */ runtimeUrl)) as { dotnet: DotnetHost };
 
     const { getAssemblyExports, getConfig } = await dotnet.create();
     const exports = await getAssemblyExports(getConfig().mainAssemblyName);

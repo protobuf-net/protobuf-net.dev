@@ -50,9 +50,13 @@ GitHub Actions builds on push to `main` and publishes `web/dist` to GitHub Pages
 
 Two details that matter for Pages:
 
-- `web/public/CNAME` carries the custom domain. DNS needs a `CNAME` record for `protogen`
-  pointing at `protobuf-net.github.io`. Delete the file to test on the default
-  `*.github.io` URL first.
+- The Vite build uses a **relative base**, so one artifact works both at the root of the custom
+  domain and under the `/protogen-site/` subpath of the default `*.github.io` URL. Anything that
+  resolves the .NET runtime at load time must go through `import.meta.env.BASE_URL`; a leading
+  slash silently breaks the subpath case.
+- `web/public/CNAME` carries the custom domain. It only takes effect once the domain is set in
+  the repo's Pages settings *and* DNS has a `CNAME` record for `protogen` pointing at
+  `protobuf-net.github.io`.
 - `web/public/.nojekyll` stops Jekyll stripping the `_framework` directory, which would otherwise
   be ignored for starting with an underscore. The artifact-based deploy does not run Jekyll, but
   the file guards against a future switch to branch-based publishing.
