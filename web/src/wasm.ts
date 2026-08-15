@@ -3,6 +3,7 @@ import type { DecodeResult, GenerateRequest, GenerateResponse } from './types';
 interface Interop {
   Generate(requestJson: string): string;
   Decode(data: Uint8Array, fullStrings: boolean): string;
+  EmbeddedProto(path: string): string;
   EngineVersion(): string;
 }
 
@@ -43,6 +44,12 @@ export async function generate(request: GenerateRequest): Promise<GenerateRespon
 export async function decode(data: Uint8Array, fullStrings: boolean): Promise<DecodeResult> {
   const interop = await loadInterop();
   return JSON.parse(interop.Decode(data, fullStrings)) as DecodeResult;
+}
+
+/** Reads a .proto embedded in protobuf-net.Reflection, e.g. "google/protobuf/descriptor.proto". */
+export async function embeddedProto(path: string): Promise<string> {
+  const interop = await loadInterop();
+  return interop.EmbeddedProto(path);
 }
 
 export async function engineVersion(): Promise<string> {

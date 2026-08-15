@@ -1,7 +1,14 @@
 export interface Sample {
   id: string;
   label: string;
-  schema: string;
+  /** inline source; omitted when the sample is loaded from an embedded resource instead */
+  schema?: string;
+  /**
+   * Import path of a .proto embedded in protobuf-net.Reflection. Used for samples too large to
+   * be worth inlining into the bundle — and it guarantees the text matches what the import
+   * resolver would use for the same path.
+   */
+  embedded?: string;
 }
 
 export const samples: Sample[] = [
@@ -146,5 +153,10 @@ message Customer {
   int32 id = 2 [(.protobuf_net.fieldopt).name = "CustomerId"];
 }
 `,
+  },
+  {
+    id: 'descriptor',
+    label: 'descriptor.proto — the canonical schema',
+    embedded: 'google/protobuf/descriptor.proto',
   },
 ];

@@ -1,6 +1,6 @@
 import type { EditorView } from '@codemirror/view';
 import { createEditor, setContent, setLanguage, showErrors, clearErrors, type LanguageName } from './editor';
-import { generate } from './wasm';
+import { generate, embeddedProto } from './wasm';
 import { samples } from './samples';
 import type { GenerateRequest, GeneratedFile, SchemaError } from './types';
 
@@ -52,9 +52,26 @@ export function initSchemaView(): void {
 
   samplePicker.addEventListener('change', () => {
     const sample = samples.find((s) => s.id === samplePicker.value);
-    if (sample) setContent(schemaEditor, sample.schema);
     samplePicker.value = '';
-    scheduleGenerate();
+    if (!sample) return;
+
+    if (sample.schema !== undefined) {
+      setContent(schemaEditor, sample.schema);
+      scheduleGenerate();
+      return;
+    }
+    if (sample.embedded === undefined) return;
+
+    // read straight out of protobuf-net.Reflection's embedded resources
+    void (async () => {
+      try {
+        setContent(schemaEditor, await embeddedProto(sample.embedded!));
+      } catch (error) {
+        renderMessages(messages, [], `could not load ${sample.embedded}: ${String(error)}`);
+        return;
+      }
+      scheduleGenerate();
+    })();
   });
 
   optionsForm.addEventListener('change', () => {

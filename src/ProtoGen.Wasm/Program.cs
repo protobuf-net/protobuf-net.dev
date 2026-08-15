@@ -38,6 +38,35 @@ public static partial class Interop
         return JsonSerializer.Serialize(result, JsonContext.Default.DecodeResult);
     }
 
+    /// <summary>
+    /// Returns one of the .proto files embedded in protobuf-net.Reflection, by its import path.
+    /// </summary>
+    /// <remarks>
+    /// Lets big samples like <c>google/protobuf/descriptor.proto</c> be offered without inlining
+    /// them into the JS bundle or fetching them over the network — and guarantees the sample is
+    /// byte-for-byte what the import resolver would use.
+    /// </remarks>
+    [JSExport]
+    internal static string EmbeddedProto(string path)
+    {
+        // mirrors the library's own rule: only its two embedded trees are addressable
+        if (string.IsNullOrWhiteSpace(path)
+            || !path.EndsWith(".proto", StringComparison.Ordinal)
+            || !(path.StartsWith("google/", StringComparison.Ordinal)
+                 || path.StartsWith("protobuf-net/", StringComparison.Ordinal)))
+        {
+            throw new ArgumentException($"'{path}' is not an embedded schema", nameof(path));
+        }
+
+        var resourceName = "ProtoBuf." + path.Replace('/', '.').Replace('-', '_');
+        using var stream = typeof(Google.Protobuf.Reflection.FileDescriptorSet).Assembly
+            .GetManifestResourceStream(resourceName)
+            ?? throw new ArgumentException($"'{path}' is not embedded in protobuf-net.Reflection", nameof(path));
+
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
     /// <summary>The protobuf-net.Reflection version doing the work, for the footer.</summary>
     [JSExport]
     internal static string EngineVersion()
