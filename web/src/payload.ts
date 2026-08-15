@@ -10,6 +10,33 @@ export interface ParseResult {
 const HEX_CHARS = /^[0-9a-fA-F]+$/;
 const BASE64_CHARS = /^[A-Za-z0-9+/\-_]*={0,2}$/;
 
+/** Separators people put between hex bytes, including the `-` this tool's own output uses. */
+const BYTE_SEPARATORS = /[\s,\-_:]+/;
+const ONE_BYTE_TOKEN = /^[0-9a-fA-F]{1,2}$/;
+
+/**
+ * Reads separated hex where each token is one byte, including unpadded single digits:
+ * `8 1 10 4` means `08 01 10 04`, not `81 10 41 86`.
+ *
+ * Several tools print bytes that way, and simply stripping the separators produces bytes the user
+ * never wrote — which then fail somewhere deep in the wire format, blaming the payload rather than
+ * the way it was read. Silently misreading input is worse than rejecting it.
+ *
+ * Only applies when *every* token is one or two hex digits, so it is unambiguous. Anything with a
+ * longer run (`0A0268 69`, or an unseparated string) falls through to pairing, unchanged. Input
+ * that is already padded (`0A 02 68 69`) reads identically under either rule.
+ */
+function tokeniseHexBytes(input: string): Uint8Array | undefined {
+  const tokens = input
+    .trim()
+    .split(BYTE_SEPARATORS)
+    .filter((token) => token.length > 0)
+    .map((token) => token.replace(/^0x/i, ''));
+
+  if (tokens.length === 0 || !tokens.every((token) => ONE_BYTE_TOKEN.test(token))) return undefined;
+  return Uint8Array.from(tokens, (token) => Number.parseInt(token, 16));
+}
+
 /** Strips whitespace and the separators people paste alongside hex (0x, commas, dashes). */
 function compactHex(input: string): string {
   return input
@@ -30,7 +57,7 @@ export function parsePayload(input: string, format: PayloadFormat): ParseResult 
 
   // auto: hex is the stricter grammar, so try it first and fall back to base64.
   const hexCandidate = compactHex(trimmed);
-  if (HEX_CHARS.test(hexCandidate) && hexCandidate.length % 2 === 0) {
+  if (tokeniseHexBytes(trimmed) || (HEX_CHARS.test(hexCandidate) && hexCandidate.length % 2 === 0)) {
     return parseHex(trimmed);
   }
   const base64Result = parseBase64(trimmed);
@@ -41,6 +68,9 @@ export function parsePayload(input: string, format: PayloadFormat): ParseResult 
 }
 
 function parseHex(input: string): ParseResult {
+  const tokenised = tokeniseHexBytes(input);
+  if (tokenised) return { bytes: tokenised, format: 'hex' };
+
   const compact = compactHex(input);
   if (!HEX_CHARS.test(compact)) {
     const bad = [...compact].find((c) => !/[0-9a-fA-F]/.test(c));

@@ -36,7 +36,8 @@ Requires the .NET 10 SDK and Node 20+.
 cd web
 npm install
 npm run dev      # publishes the WASM project, then starts Vite on :5180
-npm run build    # -> web/dist, ready to serve as static files
+npm test         # vitest, unit tests for the payload parsing
+npm run build    # wasm + typecheck + tests + bundle -> web/dist
 ```
 
 `npm run wasm` alone re-publishes the .NET side into `web/public/_framework`. That folder is

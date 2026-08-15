@@ -6,13 +6,15 @@
   "scripts": {
     "wasm": "node scripts/build-wasm.mjs",
     "dev": "npm run wasm && vite",
-    "build": "npm run wasm && tsc --noEmit && vite build",
+    "build": "npm run wasm && tsc --noEmit && vitest run && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@codemirror/commands": "^6.7.1",
