@@ -1,6 +1,6 @@
 # protogen site
 
-The site behind **[protogen.marcgravell.com](https://protogen.marcgravell.com)**: generate C# and
+The site behind **[protobuf-net.dev](https://protobuf-net.dev)**: generate C# and
 VB.NET from `.proto` schemas, and pull apart raw protobuf payloads without a schema.
 
 Everything runs in the browser. There is no server, no API and no upload — schemas and payloads
@@ -54,12 +54,39 @@ Three details that matter for Pages:
   domain and under the `/protogen-site/` subpath of the default `*.github.io` URL. Anything that
   resolves the .NET runtime at load time must go through `import.meta.env.BASE_URL`; a leading
   slash silently breaks the subpath case.
-- `web/public/CNAME` carries the custom domain. It only takes effect once the domain is set in
-  the repo's Pages settings *and* DNS has a `CNAME` record for `protogen` pointing at
-  `protobuf-net.github.io`.
+- `web/public/CNAME` names the custom domain. With artifact-based deploys this file does not by
+  itself change anything — the domain in the repo's Pages settings is what takes effect. Keep them
+  in agreement.
 - `web/public/.nojekyll` stops Jekyll stripping the `_framework` directory, which would otherwise
   be ignored for starting with an underscore. The artifact-based deploy does not run Jekyll, but
   the file guards against a future switch to branch-based publishing.
+
+### DNS for the apex domain
+
+`protobuf-net.dev` is an apex (naked) domain, so it cannot use a `CNAME` record — that is only
+valid for subdomains. Point it at GitHub's Pages addresses instead:
+
+```
+A     protobuf-net.dev    185.199.108.153
+A     protobuf-net.dev    185.199.109.153
+A     protobuf-net.dev    185.199.110.153
+A     protobuf-net.dev    185.199.111.153
+
+AAAA  protobuf-net.dev    2606:50c0:8000::153
+AAAA  protobuf-net.dev    2606:50c0:8001::153
+AAAA  protobuf-net.dev    2606:50c0:8002::153
+AAAA  protobuf-net.dev    2606:50c0:8003::153
+```
+
+If the DNS host supports `ALIAS`/`ANAME` at the apex, a single record to `protobuf-net.github.io`
+is preferable — it tracks GitHub's addresses if they ever change.
+
+Optionally add `CNAME  www  protobuf-net.github.io`; GitHub redirects `www` to the apex.
+
+`.dev` is on the HSTS preload list, so browsers will only ever load this over HTTPS. GitHub
+provisions the certificate automatically once DNS resolves; until then the site is unreachable on
+the custom domain, which is why the domain should be set in Pages settings *after* the records
+are live.
 
 ## Scope
 
