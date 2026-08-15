@@ -48,7 +48,7 @@ resolves its own content-hashed filenames.
 GitHub Actions builds on push to `main` and publishes `web/dist` to GitHub Pages
 (`.github/workflows/deploy.yml`).
 
-Two details that matter for Pages:
+Three details that matter for Pages:
 
 - The Vite build uses a **relative base**, so one artifact works both at the root of the custom
   domain and under the `/protogen-site/` subpath of the default `*.github.io` URL. Anything that
