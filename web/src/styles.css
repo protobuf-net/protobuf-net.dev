@@ -1,0 +1,701 @@
+:root {
+  --bg: #ffffff;
+  --bg-sunken: #f4f5f7;
+  --bg-raised: #ffffff;
+  --border: #d8dbe0;
+  --border-strong: #b9bec7;
+  --text: #1c2024;
+  --text-dim: #5d646e;
+  --accent: #0b6bcb;
+  --accent-contrast: #ffffff;
+  --error: #c02626;
+  --error-bg: #fdf0f0;
+  --warning: #96650a;
+  --warning-bg: #fdf6e7;
+  --info-bg: #eef4fb;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 6px;
+  --header-height: 48px;
+
+  /* syntax palette — consumed by src/highlight.ts so one style serves both schemes */
+  --syn-text: #1c2024;
+  --syn-comment: #6a737d;
+  --syn-keyword: #a626a4;
+  --syn-string: #1a7f37;
+  --syn-number: #986801;
+  --syn-type: #0550ae;
+  --syn-property: #953800;
+  --syn-function: #6639ba;
+  --syn-punctuation: #57606a;
+  --syn-meta: #4b5563;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d;
+    --bg-sunken: #101216;
+    --bg-raised: #1d2027;
+    --border: #2e333c;
+    --border-strong: #414855;
+    --text: #e3e6ea;
+    --text-dim: #98a1ae;
+    --accent: #63a7ef;
+    --accent-contrast: #10131a;
+    --error: #f2807a;
+    --error-bg: #2e1b1b;
+    --warning: #e0b558;
+    --warning-bg: #2c2415;
+    --info-bg: #16222f;
+
+    --syn-text: #e3e6ea;
+    --syn-comment: #8b949e;
+    --syn-keyword: #d2a8ff;
+    --syn-string: #7ee787;
+    --syn-number: #f0b072;
+    --syn-type: #79c0ff;
+    --syn-property: #ffa657;
+    --syn-function: #d2a8ff;
+    --syn-punctuation: #9aa4b2;
+    --syn-meta: #a5b1c2;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* ------------------------------- header ------------------------------- */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: var(--header-height);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  flex: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs a {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--text-dim);
+}
+
+.tabs a:hover {
+  background: var(--bg-sunken);
+  color: var(--text);
+}
+
+.tabs a.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.privacy {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+}
+
+/* -------------------------------- layout ------------------------------- */
+
+main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 0;
+  gap: 10px;
+}
+
+.view[hidden] {
+  display: none;
+}
+
+.split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .split {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sunken);
+  min-height: 38px;
+}
+
+.pane-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.editor {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.cm-editor {
+  height: 100%;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-scroller {
+  font-family: var(--mono);
+}
+
+/* ------------------------------- options ------------------------------- */
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  flex: none;
+}
+
+.options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.options label.check {
+  gap: 5px;
+  color: var(--text);
+}
+
+.options code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+select,
+textarea,
+button,
+input[type='file'] {
+  font: inherit;
+  color: inherit;
+}
+
+select {
+  padding: 4px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-raised);
+}
+
+button.ghost {
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-raised);
+  cursor: pointer;
+}
+
+button.ghost:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+button.ghost:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pane-head .ghost {
+  margin-left: auto;
+}
+
+.file-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.file-tab {
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.file-tab.active {
+  background: var(--bg-raised);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* the output pane keeps the last good result while the schema is broken; say so rather than
+   letting the user read code that no longer corresponds to what they are looking at */
+.pane.stale .editor {
+  opacity: 0.45;
+}
+
+.stale-badge {
+  display: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.pane.stale .stale-badge {
+  display: inline-block;
+}
+
+/* ------------------------------ messages ------------------------------- */
+
+.messages {
+  flex: none;
+  max-height: 22vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.messages:empty {
+  display: none;
+}
+
+.message {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 3px solid transparent;
+  font-size: 13px;
+}
+
+.message.error {
+  background: var(--error-bg);
+  border-left-color: var(--error);
+  color: var(--error);
+}
+
+.message.warning {
+  background: var(--warning-bg);
+  border-left-color: var(--warning);
+  color: var(--warning);
+}
+
+.message.info {
+  background: var(--info-bg);
+  border-left-color: var(--accent);
+  color: var(--text-dim);
+}
+
+/* ------------------------------- decode -------------------------------- */
+
+.decode-input {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#payload-text {
+  width: 100%;
+  min-height: 90px;
+  max-height: 28vh;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.options label.file {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.options label.file input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.options label.file span {
+  padding: 4px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 4px;
+}
+
+.payload-status:empty {
+  display: none;
+}
+
+.status {
+  font-size: 12px;
+  font-family: var(--mono);
+}
+
+.status.ok {
+  color: var(--text-dim);
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.tree-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tree-toolbar {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0 16px;
+}
+
+.tree-root,
+.tree-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-children {
+  margin-left: 14px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+/* the default disclosure marker disappears once summary is a flex container, so draw our own */
+.tree-node summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.tree-node summary::-webkit-details-marker,
+.tree-node summary::marker {
+  display: none;
+  content: '';
+}
+
+.node-row,
+.tree-node summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 4px;
+}
+
+.tree-node summary:hover,
+.node-row.leaf:hover {
+  background: var(--bg-sunken);
+}
+
+.twisty {
+  width: 12px;
+  flex: none;
+  color: var(--text-dim);
+  transition: transform 0.12s ease;
+}
+
+.twisty:not(.empty)::before {
+  content: '▸';
+}
+
+details[open] > summary .twisty:not(.empty) {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .twisty {
+    transition: none;
+  }
+}
+
+.node-body {
+  margin: 2px 0 6px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hex-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.chip {
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: var(--mono);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chip-field {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.chip-offset {
+  border-style: dashed;
+}
+
+.primary {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.primary.string {
+  color: #157f3b;
+}
+
+.primary.structural {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+@media (prefers-color-scheme: dark) {
+  .primary.string {
+    color: #6fd08c;
+  }
+}
+
+.primary .kind,
+.reading em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-left: 6px;
+}
+
+.reading em {
+  margin: 0 4px 0 0;
+}
+
+.alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  min-width: 44px;
+}
+
+.hex {
+  font-family: var(--mono);
+  padding: 0 4px;
+  border-radius: 3px;
+  word-break: break-all;
+}
+
+.hex-tag {
+  background: var(--info-bg);
+  color: var(--accent);
+}
+
+.hex-len {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.hex-value {
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+}
+
+.hex-end {
+  background: var(--info-bg);
+  color: var(--text-dim);
+}
+
+.reading {
+  font-family: var(--mono);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+}
+
+/* ------------------------------- footer -------------------------------- */
+
+.app-footer {
+  flex: none;
+  display: flex;
+  gap: 16px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.app-footer span:last-child {
+  margin-left: auto;
+}
+
+/* ------------------------------ boot overlay ---------------------------- */
+
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  z-index: 10;
+}
+
+.boot-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-dim);
+  max-width: 60ch;
+  text-align: center;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}

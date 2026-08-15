@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>protogen — protobuf schema codegen and payload analysis</title>
+    <meta
+      name="description"
+      content="Generate C# and VB.NET from .proto schemas, and pull apart raw protobuf payloads without a schema. Runs entirely in your browser."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="brand" href="#schema">
+        <img src="/protobuf-net.svg" alt="" width="28" height="28" />
+        <span>protogen</span>
+      </a>
+      <nav class="tabs" id="view-tabs">
+        <a href="#schema" data-view="schema">Schema &rarr; code</a>
+        <a href="#decode" data-view="decode">Decode payload</a>
+      </nav>
+      <div class="header-right">
+        <span class="privacy" title="Nothing you paste leaves your browser">runs locally</span>
+        <a href="https://github.com/protobuf-net/protobuf-net" rel="noopener">GitHub</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============================ schema -> code ============================ -->
+      <section id="view-schema" class="view">
+        <form class="options" id="schema-options">
+          <label>
+            Language
+            <select name="language" id="opt-language">
+              <option value="csharp">C#</option>
+              <option value="vb">VB.NET</option>
+            </select>
+          </label>
+          <label id="opt-langver-wrap">
+            Version
+            <select name="languageVersion" id="opt-langver"></select>
+          </label>
+          <label>
+            Naming
+            <select name="namingConvention" id="opt-naming">
+              <option value="auto">Auto (.NET conventions)</option>
+              <option value="noplural">Auto, no pluralising</option>
+              <option value="original">Original (as written)</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" name="services" checked /> services</label>
+          <label class="check"><input type="checkbox" name="oneOfEnum" /> <code>oneof</code> as enum</label>
+          <label class="check"><input type="checkbox" name="listSet" /> <code>repeated</code> with setters</label>
+          <label class="check"><input type="checkbox" name="repeatedAsList" /> <code>repeated</code> as list</label>
+          <label class="check"><input type="checkbox" name="nullableValueType" /> nullable value types</label>
+          <label class="check"><input type="checkbox" name="disableNullWrappers" /> no null wrappers</label>
+          <label class="check"><input type="checkbox" name="disableCompatLevel" /> no <code>CompatibilityLevel</code></label>
+        </form>
+
+        <div class="split">
+          <div class="pane">
+            <div class="pane-head">
+              <span class="pane-title">.proto schema</span>
+              <label class="inline">
+                <select id="sample-picker">
+                  <option value="">Load a sample…</option>
+                </select>
+              </label>
+            </div>
+            <div class="editor" id="schema-editor"></div>
+          </div>
+
+          <div class="pane" id="output-pane">
+            <div class="pane-head">
+              <div class="file-tabs" id="file-tabs"></div>
+              <span class="stale-badge" id="stale-badge">outdated — fix the errors below</span>
+              <button type="button" class="ghost" id="copy-output" disabled>Copy</button>
+            </div>
+            <div class="editor" id="output-editor"></div>
+          </div>
+        </div>
+
+        <div class="messages" id="schema-messages" aria-live="polite"></div>
+      </section>
+
+      <!-- ============================== decode ============================== -->
+      <section id="view-decode" class="view" hidden>
+        <div class="decode-input">
+          <form class="options" id="decode-options">
+            <label>
+              Format
+              <select name="format" id="opt-format">
+                <option value="auto">Auto-detect</option>
+                <option value="hex">Hex</option>
+                <option value="base64">Base-64</option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" name="fullStrings" /> show full strings</label>
+            <label class="file">
+              <input type="file" id="payload-file" />
+              <span>Or pick a raw file…</span>
+            </label>
+            <button type="button" class="ghost" id="clear-payload">Clear</button>
+          </form>
+          <textarea
+            id="payload-text"
+            spellcheck="false"
+            placeholder="Paste a protobuf payload as hex (0A 02 68 69) or base-64 (CgJoaQ==)"
+          ></textarea>
+          <div class="payload-status" id="payload-status"></div>
+        </div>
+
+        <div class="tree-wrap">
+          <div class="tree-toolbar" id="tree-toolbar" hidden>
+            <button type="button" class="ghost" id="expand-all">Expand all</button>
+            <button type="button" class="ghost" id="collapse-all">Collapse all</button>
+          </div>
+          <div id="decode-tree" class="tree" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span id="engine-version">loading engine…</span>
+      <span>
+        Everything runs in your browser via WebAssembly — no payload or schema is uploaded.
+      </span>
+    </footer>
+
+    <div class="boot-overlay" id="boot-overlay">
+      <div class="boot-inner">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Loading the protobuf engine…</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
