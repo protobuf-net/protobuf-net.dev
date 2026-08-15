@@ -43,10 +43,50 @@ npm run build    # -> web/dist, ready to serve as static files
 generated and git-ignored; it is copied verbatim rather than bundled, because the .NET boot process
 resolves its own content-hashed filenames.
 
+## Updating protobuf-net.Reflection
+
+The engine version is shown in the site footer, so what is deployed is always checkable.
+
+### A version bump with no new options
+
+Most updates — parser fixes, better generated code — need one line:
+
+```sh
+# src/ProtoGen.Wasm/ProtoGen.Wasm.csproj
+<PackageReference Include="protobuf-net.Reflection" Version="3.3.9" />
+```
+
+Commit, push to `main`, done. Worth building locally first (`cd web && npm run build`), because a
+new version can change generated output or surface fresh trim warnings — and `TreatWarningsAsErrors`
+means a new warning fails the build rather than shipping quietly.
+
+### A version bump that adds a generator option
+
+`CodeGenerator.Generate` takes an options dictionary, so new switches need wiring through five
+places. All mechanical, but missing one leaves an option that renders and does nothing:
+
+| File | What to add |
+| --- | --- |
+| `src/ProtoGen.Wasm/Contracts.cs` | property on `GenerateRequest` |
+| `src/ProtoGen.Wasm/Codegen.cs` | mapping in `BuildOptions` to the option key protobuf-net expects |
+| `web/src/types.ts` | matching field on the `GenerateRequest` interface |
+| `web/index.html` | the control, inside `#schema-options`, with `name` matching the property |
+| `web/src/schema.ts` | read it in `buildRequest` |
+
+Checkboxes are read with `data.has(name)`, so if the `name` attribute matches the property, the
+last step is a single line.
+
+Check the option key against protobuf-net's own generator rather than guessing — the names on the
+wire (`listset`, `nullwrappers`, `compatlevel`) do not always match the UI wording.
+
 ## Deployment
 
 GitHub Actions builds on push to `main` and publishes `web/dist` to GitHub Pages
-(`.github/workflows/deploy.yml`).
+(`.github/workflows/deploy.yml`). There is no manual step: push, and roughly two minutes later it
+is live.
+
+`index.html` is served with `Cache-Control: max-age=600`, so a returning visitor can see the
+previous version for up to ten minutes. Everything else is content-hashed and updates immediately.
 
 Three details that matter for Pages:
 
