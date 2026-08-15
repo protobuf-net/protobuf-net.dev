@@ -1,4 +1,4 @@
-# protogen site
+# protobuf-net.dev
 
 The site behind **[protobuf-net.dev](https://protobuf-net.dev)**: generate C# and
 VB.NET from `.proto` schemas, and pull apart raw protobuf payloads without a schema.
@@ -91,7 +91,7 @@ previous version for up to ten minutes. Everything else is content-hashed and up
 Three details that matter for Pages:
 
 - The Vite build uses a **relative base**, so one artifact works both at the root of the custom
-  domain and under the `/protogen-site/` subpath of the default `*.github.io` URL. Anything that
+  domain and under the `/protobuf-net.dev/` subpath of the default `*.github.io` URL. Anything that
   resolves the .NET runtime at load time must go through `import.meta.env.BASE_URL`; a leading
   slash silently breaks the subpath case.
 - `web/public/CNAME` names the custom domain. With artifact-based deploys this file does not by
