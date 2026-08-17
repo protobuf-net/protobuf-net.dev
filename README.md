@@ -61,6 +61,27 @@ Commit, push to `main`, done. Worth building locally first (`cd web && npm run b
 new version can change generated output or surface fresh trim warnings — and `TreatWarningsAsErrors`
 means a new warning fails the build rather than shipping quietly.
 
+Two NuGet timing traps when bumping on release day: the package's *dependencies*
+(`protobuf-net.Core`) index separately and can lag it by a few minutes, and a restore attempted
+before everything indexed leaves a stale negative result in the local cache — `NU1102` with a
+confidently wrong "nearest version", even after the package is live. `dotnet nuget locals
+http-cache --clear` fixes the second.
+
+### A version bump that adds language syntax
+
+When the *language* grows — editions was the big one — the bump alone makes parsing and codegen
+work, but two things in `web/src` describe the language independently and need to keep up:
+
+| File | What to add |
+| --- | --- |
+| `web/src/samples.ts` | a sample showing the new syntax (inline `schema`, or `embedded` naming a `.proto` that ships inside protobuf-net.Reflection) |
+| `web/src/protobufMode.ts` | any new keywords, so the editor highlights them |
+
+`protobufMode.ts` is a local copy of the trivial `@codemirror/legacy-modes` protobuf tokenizer —
+vendored precisely because the upstream keyword list stops at early proto3 (it predates even
+`oneof` and `map`), and a sample demonstrating new syntax looks broken when its keywords render
+as plain identifiers.
+
 ### A version bump that adds a generator option
 
 `CodeGenerator.Generate` takes an options dictionary, so new switches need wiring through five

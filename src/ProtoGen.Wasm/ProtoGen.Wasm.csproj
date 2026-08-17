@@ -28,7 +28,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="protobuf-net.Reflection" Version="3.3.8" />
+    <PackageReference Include="protobuf-net.Reflection" Version="3.3.21" />
   </ItemGroup>
 
 </Project>
