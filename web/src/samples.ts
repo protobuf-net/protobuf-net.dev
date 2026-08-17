@@ -136,6 +136,77 @@ message Order {
 `,
   },
   {
+    id: 'editions-2023',
+    label: 'Editions 2023 — features, presence, delimited',
+    schema: `edition = "2023";
+
+package store;
+
+message Order {
+  // explicit presence is the editions default: generated code can tell
+  // "absent" from "zero"
+  int32 id = 1;
+  string customer = 2 [default = "unknown"];
+
+  // opt back in to proto3-style implicit presence, per field
+  int32 revision = 3 [features.field_presence = IMPLICIT];
+
+  // DELIMITED is the group wire format - protobuf-net's DataFormat.Group,
+  // supported since protobuf-net v1; editions finally gives it a spelling
+  Address delivery = 4 [features.message_encoding = DELIMITED];
+
+  repeated int32 line_totals = 5;  // packed by default
+  repeated int32 flags = 6 [features.repeated_field_encoding = EXPANDED];
+
+  Status status = 7;
+}
+
+message Address {
+  string line1 = 1;
+  string postcode = 2;
+}
+
+// a closed enum keeps proto2 semantics; without the option, editions
+// enums are open and must start at zero
+enum Status {
+  option features.enum_type = CLOSED;
+  PENDING = 1;
+  SHIPPED = 2;
+}
+`,
+  },
+  {
+    id: 'editions-2024',
+    label: 'Editions 2024 — symbol visibility',
+    schema: `edition = "2024";
+
+package catalog;
+
+// edition 2024: 'export' and 'local' control which symbols other files
+// may import; nested types default to local here
+export message Product {
+  string sku = 1;
+  int32 quantity = 2;
+
+  local enum Source {
+    SOURCE_UNSPECIFIED = 0;
+    SOURCE_WAREHOUSE = 1;
+    SOURCE_DROPSHIP = 2;
+  }
+  Source source = 3;
+}
+
+local message InternalNote {
+  string text = 1;
+}
+
+message Inventory {
+  repeated Product products = 1;
+  repeated InternalNote notes = 2;
+}
+`,
+  },
+  {
     id: 'protogen-options',
     label: 'protobuf-net options — control the generated C#',
     schema: `syntax = "proto3";

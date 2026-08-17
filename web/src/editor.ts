@@ -5,7 +5,7 @@ import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { StreamLanguage, syntaxHighlighting, bracketMatching } from '@codemirror/language';
 import { highlightStyle } from './highlight';
 import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
-import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
+import { protobuf } from './protobufMode';
 import { csharp } from '@codemirror/legacy-modes/mode/clike';
 import { vb } from '@codemirror/legacy-modes/mode/vb';
 import type { SchemaError } from './types';
