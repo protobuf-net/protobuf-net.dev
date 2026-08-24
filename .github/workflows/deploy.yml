@@ -37,6 +37,11 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # the wire walker and the schema decoding, on plain net10.0; kept out of the build below so
+      # the deploy path stays about producing web/dist
+      - name: Test engine
+        run: dotnet test src/ProtoGen.Wasm.Tests/ProtoGen.Wasm.Tests.csproj --nologo
+
       # publishes the WASM project, copies _framework into public/, typechecks, then bundles
       - name: Build
         working-directory: web

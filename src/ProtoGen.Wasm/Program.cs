@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 namespace ProtoGen.Wasm;
 
@@ -13,29 +14,69 @@ public static partial class Interop
     [JSExport]
     internal static string Generate(string requestJson)
     {
-        GenerateRequest request;
-        try
+        var request = Read(requestJson, JsonContext.Default.GenerateRequest, out var malformed);
+        if (malformed is not null)
         {
-            request = JsonSerializer.Deserialize(requestJson, JsonContext.Default.GenerateRequest)
-                ?? new GenerateRequest();
-        }
-        catch (JsonException ex)
-        {
-            var bad = new GenerateResponse { Exception = $"malformed request: {ex.Message}" };
-            return JsonSerializer.Serialize(bad, JsonContext.Default.GenerateResponse);
+            return JsonSerializer.Serialize(
+                new GenerateResponse { Exception = malformed }, JsonContext.Default.GenerateResponse);
         }
 
         var response = Codegen.Generate(request);
         return JsonSerializer.Serialize(response, JsonContext.Default.GenerateResponse);
     }
 
-    /// <summary>Decomposes a raw protobuf payload into a tree, without a schema. Returns JSON.</summary>
+    /// <summary>
+    /// Decomposes a raw protobuf payload into a tree. The request may carry a schema and the
+    /// message the payload is an instance of; without them the bytes are read on their own terms.
+    /// Takes JSON alongside the payload, and returns JSON.
+    /// </summary>
     [JSExport]
-    internal static string Decode(byte[] data, bool fullStrings)
+    internal static string Decode(byte[] data, string requestJson)
     {
-        var options = new DecodeOptions { FullStrings = fullStrings };
-        var result = WireWalker.Decode(data, options);
+        var request = Read(requestJson, JsonContext.Default.DecodeRequest, out var malformed);
+        if (malformed is not null)
+        {
+            return JsonSerializer.Serialize(
+                new DecodeResult { SchemaNote = malformed }, JsonContext.Default.DecodeResult);
+        }
+
+        var result = Decoder.Decode(data, request);
         return JsonSerializer.Serialize(result, JsonContext.Default.DecodeResult);
+    }
+
+    /// <summary>
+    /// Lists the message types a schema declares, so the decode view can offer them as root types.
+    /// Returns JSON, with the same parse diagnostics the schema view would show.
+    /// </summary>
+    [JSExport]
+    internal static string SchemaTypes(string requestJson)
+    {
+        var request = Read(requestJson, JsonContext.Default.DecodeRequest, out var malformed);
+        if (malformed is not null)
+        {
+            return JsonSerializer.Serialize(
+                new SchemaTypesResult { Exception = malformed }, JsonContext.Default.SchemaTypesResult);
+        }
+
+        return JsonSerializer.Serialize(Decoder.Types(request), JsonContext.Default.SchemaTypesResult);
+    }
+
+    /// <summary>
+    /// Reads a request, or reports why it could not be read. Each export shapes that report into
+    /// its own response type, so the caller sees a failure in the shape it was expecting.
+    /// </summary>
+    private static T Read<T>(string json, JsonTypeInfo<T> type, out string? malformed) where T : new()
+    {
+        malformed = null;
+        try
+        {
+            return JsonSerializer.Deserialize(json, type) ?? new T();
+        }
+        catch (JsonException ex)
+        {
+            malformed = $"malformed request: {ex.Message}";
+            return new T();
+        }
     }
 
     /// <summary>
