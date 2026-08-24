@@ -6,7 +6,7 @@
     <title>protobuf-net — protobuf schema codegen and payload analysis</title>
     <meta
       name="description"
-      content="Generate C# and VB.NET from .proto schemas in your browser, reach protoc for C++, Java, Python and the rest, and pull apart raw protobuf payloads without a schema."
+      content="Generate C# and VB.NET from .proto schemas in your browser, reach protoc for C++, Java, Python and the rest, and pull apart raw protobuf payloads, with or without a schema to name the fields."
     />
     <link rel="icon" href="/protobuf-net-mark.svg" type="image/svg+xml" />
   </head>
@@ -115,6 +115,11 @@
               <span>Or pick a raw file…</span>
             </label>
             <button type="button" class="ghost" id="clear-payload">Clear</button>
+            <label class="inline">
+              <select id="decode-sample-picker">
+                <option value="">Load an example…</option>
+              </select>
+            </label>
           </form>
           <textarea
             id="payload-text"
@@ -123,6 +128,30 @@
           ></textarea>
           <div class="payload-status" id="payload-status"></div>
         </div>
+
+        <!-- optional: with a schema the tree is labelled rather than guessed at, so the state of
+             this panel is summarised in the header and stays visible while it is closed -->
+        <details class="schema-panel" id="decode-schema">
+          <summary>
+            <span class="twisty" aria-hidden="true"></span>
+            <span class="pane-title">Decode with a schema</span>
+            <span class="note">optional — names the fields instead of guessing at them</span>
+            <span class="schema-state" id="decode-schema-state"></span>
+          </summary>
+          <div class="schema-panel-body">
+            <form class="options" id="decode-schema-options">
+              <label>
+                This payload is a
+                <select id="opt-root-type">
+                  <option value="">choose a message…</option>
+                </select>
+              </label>
+              <button type="button" class="ghost" id="copy-schema">Copy from Schema &rarr; code</button>
+            </form>
+            <div class="editor" id="decode-schema-editor"></div>
+            <div class="messages" id="decode-schema-messages" aria-live="polite"></div>
+          </div>
+        </details>
 
         <div class="tree-wrap">
           <div class="tree-toolbar" id="tree-toolbar" hidden>

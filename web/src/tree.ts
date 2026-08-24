@@ -7,9 +7,16 @@ import type { DecodeResult, Node, Reading } from './types';
  * its own bytes without needing a click. Second, on the wire a length-delimited field could be a
  * string, a sub-message or packed scalars with no way to tell them apart — so each row leads with
  * the most likely reading and keeps the alternatives one click away rather than picking silently.
+ *
+ * A schema settles that second question, and the rows say so: a named field leads with its name and
+ * declared type, and the readings behind it shrink to the one the schema asked for. What it cannot
+ * settle it flags — a field the schema does not declare, or bytes that are not what it says.
  */
 export function renderTree(container: Element, result: DecodeResult): void {
   container.replaceChildren();
+
+  // why the rows are unlabelled, said where the unlabelled rows are
+  if (result.schemaNote) container.append(note('info', result.schemaNote));
 
   if (result.nodes.length === 0 && !result.error) {
     container.append(note('info', 'No fields found — the payload is empty.'));
@@ -39,7 +46,7 @@ function renderNode(node: Node): HTMLLIElement {
 
   const alternatives = alternativeReadings(node);
   const hasChildren = !!node.children?.length;
-  const expandable = hasChildren || alternatives.length > 0 || !!node.note;
+  const expandable = hasChildren || alternatives.length > 0 || !!node.note || !!node.mismatch;
 
   if (!expandable) {
     const row = buildRow(node, false);
@@ -59,6 +66,16 @@ function renderNode(node: Node): HTMLLIElement {
 
   const body = document.createElement('div');
   body.className = 'node-body';
+
+  // the bytes and the schema disagreeing is usually the thing being looked for, so it leads
+  if (node.mismatch) body.append(note('warning', node.mismatch));
+
+  if (node.messageType && hasChildren) {
+    const read = document.createElement('div');
+    read.className = 'alternatives';
+    read.append(label('read as'), readingValue(node.messageType));
+    body.append(read);
+  }
 
   if (alternatives.length > 0) {
     const alt = document.createElement('div');
@@ -99,7 +116,18 @@ function buildRow(node: Node, expandable: boolean): HTMLElement {
   twisty.setAttribute('aria-hidden', 'true');
   row.append(twisty);
 
-  row.append(chip('field', `#${node.field}`), chip('wire', node.wireType), primaryValue(node));
+  row.append(chip('field', `#${node.field}`));
+
+  // what the schema calls this, when there is one; the wire type stays either way, because the
+  // wire type is what this tool is for
+  if (node.name) row.append(chip('name', node.name));
+  if (node.declared) row.append(chip('type', node.declared));
+  if (node.oneOf) row.append(chip('oneof', `oneof ${node.oneOf}`));
+  if (node.extension) row.append(chip('extension', 'extension'));
+  if (node.unknown) row.append(chip('unknown', 'not in the schema'));
+  if (node.mismatch) row.append(chip('mismatch', 'not as declared'));
+
+  row.append(chip('wire', node.wireType), primaryValue(node));
   row.append(hexInline(node), chip('offset', `${node.start}–${node.end}`));
   return row;
 }
@@ -133,7 +161,8 @@ function primaryValue(node: Node): HTMLElement {
   }
 
   span.textContent = reading.value;
-  span.append(kindTag(reading.kind));
+  // the declared type is already on the row; repeating it after every value is noise
+  if (!node.declared) span.append(kindTag(reading.kind));
   return span;
 }
 
@@ -172,6 +201,14 @@ function readingChip(reading: Reading): HTMLElement {
   const kind = document.createElement('em');
   kind.textContent = reading.kind;
   span.append(kind, document.createTextNode(` ${reading.value}`));
+  return span;
+}
+
+/** A bare value styled like a reading, for the things that are not one — a type name, say. */
+function readingValue(text: string): HTMLElement {
+  const span = document.createElement('span');
+  span.className = 'reading';
+  span.textContent = text;
   return span;
 }
 

@@ -66,6 +66,32 @@ export interface Node {
   speculative: boolean;
   looksPrintable: boolean;
   note?: string;
+
+  // from the schema, when one is applied
+
+  /** the field's name in the schema */
+  name?: string;
+  /** how the schema declares it: "string", "repeated Person", "map<string, int32>" */
+  declared?: string;
+  /** fully-qualified name of the message the children were read as */
+  messageType?: string;
+  /** the oneof this field belongs to, if any */
+  oneOf?: string;
+  /** a schema was applied and does not declare this field number */
+  unknown?: boolean;
+  /** the field comes from an `extend` block rather than the message itself */
+  extension?: boolean;
+  /** set when the bytes cannot be what the schema says they are */
+  mismatch?: string;
+}
+
+export interface DecodeRequest {
+  fullStrings: boolean;
+  /** optional .proto source; when present, fields are named and typed from it */
+  schema?: string;
+  fileName: string;
+  /** the message the payload is an instance of, e.g. "tutorial.Person" */
+  rootType?: string;
 }
 
 export interface DecodeResult {
@@ -74,4 +100,18 @@ export interface DecodeResult {
   consumedBytes: number;
   error?: string;
   truncated: boolean;
+  /** the message the top-level fields were read as; absent when no schema was applied */
+  rootType?: string;
+  schemaErrors?: SchemaError[];
+  /** why a supplied schema was not applied */
+  schemaNote?: string;
+  /** fields the schema does not declare */
+  unknownFields: number;
+}
+
+/** The message types a schema declares, for the root-type picker. */
+export interface SchemaTypesResult {
+  types: string[];
+  errors: SchemaError[];
+  exception?: string;
 }

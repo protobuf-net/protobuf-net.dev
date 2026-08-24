@@ -17,17 +17,30 @@ const LANGUAGE_VERSIONS: Record<string, string[]> = {
   vb: ['vb14', 'vb11', 'vb9'],
 };
 
-const DEFAULT_SCHEMA = samples[0]!.schema;
+const DEFAULT_SCHEMA = samples[0]!.schema ?? '';
 
 /** Small enough that regenerating on every keystroke is fine; this just avoids thrashing. */
 const DEBOUNCE_MS = 250;
+
+let latestSchema = DEFAULT_SCHEMA;
+
+/**
+ * The .proto this view currently holds, so the decode view can offer to borrow it. Kept here
+ * rather than read out of the DOM, because the editor's document is the authority on its own text.
+ */
+export function schemaViewText(): string {
+  return latestSchema;
+}
 
 export function initSchemaView(): void {
   const schemaEditor = createEditor({
     parent: required('#schema-editor'),
     doc: DEFAULT_SCHEMA,
     language: 'protobuf',
-    onChange: () => scheduleGenerate('edit'),
+    onChange: (value) => {
+      latestSchema = value;
+      scheduleGenerate('edit');
+    },
   });
 
   const outputEditor = createEditor({
