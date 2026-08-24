@@ -16,6 +16,13 @@ const publishFramework = resolve(
 );
 const target = resolve(webRoot, 'public/_framework');
 
+// dotnet publish copies into its output without clearing it first, and the runtime's filenames are
+// content-hashed, so every rebuild that changes the engine leaves the previous build's files
+// alongside the current ones - which then ship. Harmless bytes rather than a fault, since the boot
+// manifest names exactly one of them, but it grows without limit and makes the output a poor guide
+// to what is actually being loaded.
+await rm(publishFramework, { recursive: true, force: true });
+
 console.log('> dotnet publish ProtoGen.Wasm -c Release');
 const result = spawnSync('dotnet', ['publish', project, '-c', 'Release', '--nologo'], {
   stdio: 'inherit',

@@ -23,6 +23,9 @@ interface DotnetHost {
 
 let interopPromise: Promise<Interop> | undefined;
 
+/** Injected by vite.config.ts: a hash of dotnet.js, which changes when anything it loads does. */
+declare const __FRAMEWORK_ID__: string;
+
 /**
  * Boots the .NET runtime once and caches the result. `_framework` is emitted by the .NET SDK and
  * copied verbatim into public/, so it is loaded at runtime rather than bundled - the boot process
@@ -30,10 +33,19 @@ let interopPromise: Promise<Interop> | undefined;
  */
 export function loadInterop(): Promise<Interop> {
   interopPromise ??= (async () => {
-    // resolved against the document, not this module: the bundle lives under assets/, whereas
+    // Resolved against the document, not this module: the bundle lives under assets/, whereas
     // _framework sits beside index.html. BASE_URL keeps this correct whether the site is served
     // from a domain root or a subpath.
-    const runtimeUrl = new URL(`${import.meta.env.BASE_URL}_framework/dotnet.js`, document.baseURI).href;
+    //
+    // The query is a cache key, not a parameter. dotnet.js is the one file here the SDK does not
+    // content-hash, and it holds the hashed names of everything else, so a visitor holding a
+    // cached copy from a previous deploy would ask for assemblies that no longer exist and never
+    // get past the loading overlay. Everything dotnet.js goes on to fetch resolves relative to
+    // itself, without the query, and is hashed already.
+    const runtimeUrl = new URL(
+      `${import.meta.env.BASE_URL}_framework/dotnet.js?v=${__FRAMEWORK_ID__}`,
+      document.baseURI,
+    ).href;
     const { dotnet } = (await import(/* @vite-ignore */ runtimeUrl)) as { dotnet: DotnetHost };
 
     const { getAssemblyExports, getConfig } = await dotnet.create();

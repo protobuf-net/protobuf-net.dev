@@ -186,8 +186,16 @@ is live.
 `index.html` is served with `Cache-Control: max-age=600`, so a returning visitor can see the
 previous version for up to ten minutes. Everything else is content-hashed and updates immediately.
 
-Three details that matter for Pages:
+Four details that matter for Pages:
 
+- **`_framework/dotnet.js` is cache-busted on purpose.** Pages serves it with `max-age=14400` and
+  offers no way to say otherwise per path. It is the one file the .NET SDK does not content-hash,
+  and it holds the hashed names of everything else — so a returning visitor with a four-hour-old
+  copy asks for assemblies the current deploy no longer has, gets a 404 mid-boot, and sits on the
+  loading overlay forever. `vite.config.ts` hashes that file into `__FRAMEWORK_ID__` and `wasm.ts`
+  loads it as `dotnet.js?v=<id>`, which changes exactly when something it loads does. This bites
+  only on deploys that change the .NET side, which is why it stayed hidden for several web-only
+  deploys before it did not.
 - The Vite build uses a **relative base**, so one artifact works both at the root of the custom
   domain and under the `/protobuf-net.dev/` subpath of the default `*.github.io` URL. Anything that
   resolves the .NET runtime at load time must go through `import.meta.env.BASE_URL`; a leading
