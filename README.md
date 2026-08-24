@@ -1,10 +1,15 @@
 # protobuf-net.dev
 
 The site behind **[protobuf-net.dev](https://protobuf-net.dev)**: generate C# and
-VB.NET from `.proto` schemas, and pull apart raw protobuf payloads without a schema.
+VB.NET from `.proto` schemas, reach `protoc` for the languages Google's compiler provides, and
+pull apart raw protobuf payloads without a schema.
 
-Everything runs in the browser. There is no server, no API and no upload — schemas and payloads
-never leave the machine they were pasted on. The site is a folder of static files.
+The site is a folder of static files. C#, VB.NET and payload decoding run in the browser through
+WebAssembly, so a schema or payload pasted into either of those never leaves the machine it was
+pasted on. The `protoc` targets are the exception and cannot be otherwise — `protoc` is a native
+executable — so they are compiled by
+[protoc.protobuf-net.dev](https://github.com/protobuf-net/protoc.protobuf-net.dev), and only when
+the user picks one of those languages and presses Generate.
 
 This replaces the older ASP.NET-hosted site that lived in the
 [protobuf-net](https://github.com/protobuf-net/protobuf-net) repo under `src/protogen.site`.
@@ -39,6 +44,11 @@ npm run dev      # publishes the WASM project, then starts Vite on :5180
 npm test         # vitest, unit tests for the payload parsing
 npm run build    # wasm + typecheck + tests + bundle -> web/dist
 ```
+
+The `protoc` targets point at the live service by default. To develop against a local one, set
+`VITE_PROTOC_ENDPOINT` — `VITE_PROTOC_ENDPOINT=http://localhost:8787 npm run dev` alongside
+`wrangler dev` in the
+[service repo](https://github.com/protobuf-net/protoc.protobuf-net.dev).
 
 `npm run wasm` alone re-publishes the .NET side into `web/public/_framework`. That folder is
 generated and git-ignored; it is copied verbatim rather than bundled, because the .NET boot process
@@ -152,20 +162,42 @@ are live.
 
 ## Scope
 
-**C# and VB.NET only.** The old site also offered C++, Java, JavaScript, Objective-C, PHP, Python
-and Ruby by shelling out to `protoc` on the server. `protoc` is a native executable and cannot run
-client-side, so those targets are gone rather than quietly broken.
+**C# and VB.NET locally; everything else through `protoc`.** protobuf-net generates the first two,
+in the browser. C++, Java, Kotlin, Objective-C, PHP, Python, Ruby and Google's own C# come from
+`protoc`, which is a native executable and cannot run client-side, so they are compiled by
+[protoc.protobuf-net.dev](https://github.com/protobuf-net/protoc.protobuf-net.dev) — a Cloudflare
+Worker in front of a container. That repository documents the service; what matters here is the
+contract:
 
-Compiling `protoc` itself to WebAssembly was investigated and parked. There is no maintained build:
-`kwonoj/protobuf-wasm` and `mjz20/protobuf_wasm` patch the protobuf *runtime* for Emscripten and
-explicitly do not build the compiler, and the one recent attempt at the compiler proper
+- `web/src/protoc.ts` holds the target list, the endpoint and the response reader. Adding a target
+  protoc already supports means one entry there and one in the service's own table.
+- The service answers with the same `GenerateResponse` shape the WebAssembly path returns, so both
+  render through `applyResponse` in `web/src/schema.ts` and there is one code path for output,
+  diagnostics and the editor gutter.
+- Nothing is sent while typing. Choosing a `protoc` target generates once, because choosing it is
+  the decision to use it; after that the output is marked stale on edit and re-sent only when the
+  user presses Generate.
+- The service carries the same `.proto` corpus that `protobuf-net.Reflection` embeds, so imports of
+  `google/**` and `protobuf-net/**` resolve identically on both paths. Nothing about imports is
+  sent from here.
+
+Compiling `protoc` itself to WebAssembly — which would have avoided the server altogether — was
+investigated and parked. There is no maintained build: `kwonoj/protobuf-wasm` and
+`mjz20/protobuf_wasm` patch the protobuf *runtime* for Emscripten and explicitly do not build the
+compiler, and the one recent attempt at the compiler proper
 ([protobuf#20819](https://github.com/protocolbuffers/protobuf/issues/20819)) produces a `protoc.js`
 that builds but fails code generation on path resolution. The real work is MEMFS plumbing for
 `--proto_path` and generated outputs, unmaintained upstream, on top of a C++ binary that links
-every language generator and would likely dwarf the .NET runtime.
+every language generator and would likely dwarf the .NET runtime. If that ever lands, the service
+becomes unnecessary rather than merely unfortunate.
 
-If a target language is ever worth restoring, JavaScript/TypeScript is the cheap one: `protobufjs`
-and `@bufbuild/protobuf` generate it in pure JS with no `protoc` involved.
+JavaScript and TypeScript are on neither list: `protoc` dropped its JavaScript generator in v21.
+`protobufjs` and `@bufbuild/protobuf` generate both in pure JS, so that one belongs back in the
+browser if it is ever worth having.
+
+PHP output is not syntax-highlighted. `@codemirror/legacy-modes` has no PHP mode, and
+`@codemirror/lang-php` brings the HTML, CSS and JavaScript parsers with it — too much weight for
+colouring output that is read once and copied.
 
 See [`docs/trimming.md`](docs/trimming.md) for why the build suppresses `IL2104`.
 

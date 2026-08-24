@@ -6,14 +6,27 @@ import { StreamLanguage, syntaxHighlighting, bracketMatching } from '@codemirror
 import { highlightStyle } from './highlight';
 import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
 import { protobuf } from './protobufMode';
-import { csharp } from '@codemirror/legacy-modes/mode/clike';
+import { csharp, cpp, java, kotlin, objectiveC } from '@codemirror/legacy-modes/mode/clike';
 import { vb } from '@codemirror/legacy-modes/mode/vb';
+import { python } from '@codemirror/legacy-modes/mode/python';
+import { ruby } from '@codemirror/legacy-modes/mode/ruby';
 import type { SchemaError } from './types';
 
+// protobuf-net generates the first two; the rest arrive from protoc and are read-only output like
+// any other, so they need a tokenizer and nothing else.
 const languages = {
   protobuf: StreamLanguage.define(protobuf),
   csharp: StreamLanguage.define(csharp),
   vb: StreamLanguage.define(vb),
+  cpp: StreamLanguage.define(cpp),
+  java: StreamLanguage.define(java),
+  kotlin: StreamLanguage.define(kotlin),
+  objectiveC: StreamLanguage.define(objectiveC),
+  // deliberately unhighlighted: @codemirror/legacy-modes has no PHP mode, and @codemirror/lang-php
+  // brings the HTML, CSS and JavaScript parsers with it to colour output nobody edits here
+  php: [] as Extension,
+  python: StreamLanguage.define(python),
+  ruby: StreamLanguage.define(ruby),
 } as const;
 
 export type LanguageName = keyof typeof languages;

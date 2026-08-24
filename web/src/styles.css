@@ -260,6 +260,32 @@ main {
   border-radius: 3px;
 }
 
+/* the protoc targets are compiled elsewhere: protobuf-net's own switches mean nothing to them,
+   and in exchange the bar gains the button that decides when the schema is sent */
+.options .remote-only {
+  display: none;
+}
+
+.options.remote .net-only {
+  display: none;
+}
+
+.options.remote .remote-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.options .note {
+  font-size: 12px;
+  color: var(--text-dim);
+  flex-wrap: wrap;
+}
+
+.options .note a {
+  color: var(--accent);
+}
+
 select,
 textarea,
 button,

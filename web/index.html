@@ -6,7 +6,7 @@
     <title>protobuf-net — protobuf schema codegen and payload analysis</title>
     <meta
       name="description"
-      content="Generate C# and VB.NET from .proto schemas, and pull apart raw protobuf payloads without a schema. Runs entirely in your browser."
+      content="Generate C# and VB.NET from .proto schemas in your browser, reach protoc for C++, Java, Python and the rest, and pull apart raw protobuf payloads without a schema."
     />
     <link rel="icon" href="/protobuf-net-mark.svg" type="image/svg+xml" />
   </head>
@@ -21,7 +21,8 @@
         <a href="#decode" data-view="decode">Decode payload</a>
       </nav>
       <div class="header-right">
-        <span class="privacy" title="Nothing you paste leaves your browser">runs locally</span>
+        <!-- says where the current target runs; schema.ts flips it when a protoc target is picked -->
+        <span class="privacy" id="privacy-badge" title="Nothing you paste leaves your browser">runs locally</span>
         <a href="https://docs.protobuf-net.dev/" rel="noopener">Docs</a>
         <a href="https://github.com/protobuf-net/protobuf-net" rel="noopener">GitHub</a>
       </div>
@@ -34,15 +35,25 @@
           <label>
             Language
             <select name="language" id="opt-language">
-              <option value="csharp">C#</option>
-              <option value="vb">VB.NET</option>
+              <optgroup label="protobuf-net — in your browser">
+                <option value="csharp">C#</option>
+                <option value="vb">VB.NET</option>
+              </optgroup>
+              <!-- filled from PROTOC_LANGUAGES, so the picker and the service cannot disagree -->
+              <optgroup label="protoc — on protoc.protobuf-net.dev" id="opt-language-protoc"></optgroup>
             </select>
           </label>
-          <label id="opt-langver-wrap">
+          <button type="button" class="ghost remote-only" id="run-protoc">Generate</button>
+          <span class="note remote-only">
+            compiled by <code>protoc</code> on
+            <a href="https://protoc.protobuf-net.dev" rel="noopener">protoc.protobuf-net.dev</a> —
+            your schema is sent there when you press Generate
+          </span>
+          <label id="opt-langver-wrap" class="net-only">
             Version
             <select name="languageVersion" id="opt-langver"></select>
           </label>
-          <label>
+          <label class="net-only">
             Naming
             <select name="namingConvention" id="opt-naming">
               <option value="auto">Auto (.NET conventions)</option>
@@ -50,13 +61,13 @@
               <option value="original">Original (as written)</option>
             </select>
           </label>
-          <label class="check"><input type="checkbox" name="services" checked /> services</label>
-          <label class="check"><input type="checkbox" name="oneOfEnum" /> <code>oneof</code> as enum</label>
-          <label class="check"><input type="checkbox" name="listSet" /> <code>repeated</code> with setters</label>
-          <label class="check"><input type="checkbox" name="repeatedAsList" /> <code>repeated</code> as list</label>
-          <label class="check"><input type="checkbox" name="nullableValueType" /> nullable value types</label>
-          <label class="check"><input type="checkbox" name="disableNullWrappers" /> no null wrappers</label>
-          <label class="check"><input type="checkbox" name="disableCompatLevel" /> no <code>CompatibilityLevel</code></label>
+          <label class="check net-only"><input type="checkbox" name="services" checked /> services</label>
+          <label class="check net-only"><input type="checkbox" name="oneOfEnum" /> <code>oneof</code> as enum</label>
+          <label class="check net-only"><input type="checkbox" name="listSet" /> <code>repeated</code> with setters</label>
+          <label class="check net-only"><input type="checkbox" name="repeatedAsList" /> <code>repeated</code> as list</label>
+          <label class="check net-only"><input type="checkbox" name="nullableValueType" /> nullable value types</label>
+          <label class="check net-only"><input type="checkbox" name="disableNullWrappers" /> no null wrappers</label>
+          <label class="check net-only"><input type="checkbox" name="disableCompatLevel" /> no <code>CompatibilityLevel</code></label>
         </form>
 
         <div class="split">
@@ -125,7 +136,9 @@
     <footer class="app-footer">
       <span id="engine-version">loading engine…</span>
       <span>
-        Everything runs in your browser via WebAssembly — no payload or schema is uploaded.
+        C#, VB.NET and payload decoding run in your browser via WebAssembly and are never uploaded.
+        protoc's own languages are compiled on
+        <a href="https://protoc.protobuf-net.dev" rel="noopener">protoc.protobuf-net.dev</a>.
       </span>
     </footer>
 
