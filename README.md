@@ -2,7 +2,7 @@
 
 The site behind **[protobuf-net.dev](https://protobuf-net.dev)**: generate C# and
 VB.NET from `.proto` schemas, reach `protoc` for the languages Google's compiler provides, and
-pull apart raw protobuf payloads without a schema.
+pull apart raw protobuf payloads — with a schema to name the fields, or without one.
 
 The site is a folder of static files. C#, VB.NET and payload decoding run in the browser through
 WebAssembly, so a schema or payload pasted into either of those never leaves the machine it was
@@ -18,8 +18,9 @@ This replaces the older ASP.NET-hosted site that lived in the
 
 | Layer | What it is |
 | --- | --- |
-| `src/ProtoGen.Wasm` | .NET 10 targeting `net10.0-browser` via `Microsoft.NET.Sdk.WebAssembly` — **not** Blazor. Exposes three `[JSExport]` methods and nothing else. |
-| `web` | Plain TypeScript + Vite. CodeMirror 6 for both editors. No UI framework. |
+| `src/ProtoGen.Wasm` | .NET 10 targeting `net10.0-browser` via `Microsoft.NET.Sdk.WebAssembly` — **not** Blazor. Exposes five `[JSExport]` methods and nothing else. |
+| `src/ProtoGen.Wasm.Tests` | xunit over the same sources, on plain `net10.0`. Compiles them in rather than referencing the project: a browser-targeted assembly full of `[JSExport]` will not load in a test host. |
+| `web` | Plain TypeScript + Vite. CodeMirror 6 for every editor. No UI framework. |
 
 The schema work is done by the published [`protobuf-net.Reflection`](https://www.nuget.org/packages/protobuf-net.Reflection)
 package — the same parser and generators as the `protogen` command-line tool. Imports of
@@ -33,6 +34,33 @@ malformed input, neither of which a serializer's reader is built to give.
 Total download is roughly 1.7 MB brotli-compressed, most of which is the .NET runtime, cached
 after first visit.
 
+## Decoding against a schema
+
+The decode view takes an optional `.proto` alongside the payload. With one, every field carries its
+name and declared type, and the readings the wire format cannot choose between — string, bytes,
+sub-message, packed scalars — collapse to the one the schema asked for. Both halves were already
+here; the join is `Decoder.cs`, which is the only file that knows about schema text *and* payloads.
+
+Three things are worth knowing about the design:
+
+- **The root type is asked for, never guessed.** Nothing in a payload says which message it is, and
+  the wrong choice decodes to confident nonsense. The picker offers every message the schema
+  declares and chooses only when there is exactly one.
+- **The bytes win.** Where the payload contradicts the schema — a wire type that does not match the
+  declared one, a `string` holding invalid UTF-8, a sub-message that will not parse — the field is
+  flagged and then read as if there were no schema. Rendering a mismatch as the declared type would
+  hide the exact bug the tool was opened to find.
+- **A schema that fails to parse still helps.** Its diagnostics travel with the decode and the
+  fields it did understand are still named, rather than the whole thing falling back to guesswork.
+
+`SchemaIndex.cs` flattens the descriptor into the two lookups the walker actually needs — field
+number to declared type, enum number to name — and `SchemaSource.cs` remembers the last schema it
+parsed, so typing in the payload box does not reparse the schema beside it.
+
+The JS boundary carries this as JSON: `Decode(payload, requestJson)` takes the schema and root type
+alongside the bytes, and `SchemaTypes(requestJson)` lists the messages a schema declares, for the
+picker. Both go through the same remembered parse.
+
 ## Building
 
 Requires the .NET 10 SDK and Node 20+.
@@ -40,10 +68,14 @@ Requires the .NET 10 SDK and Node 20+.
 ```sh
 cd web
 npm install
-npm run dev      # publishes the WASM project, then starts Vite on :5180
-npm test         # vitest, unit tests for the payload parsing
-npm run build    # wasm + typecheck + tests + bundle -> web/dist
+npm run dev         # publishes the WASM project, then starts Vite on :5180
+npm test            # vitest, unit tests for reading pasted hex and base-64
+npm run test:engine # dotnet test, unit tests for the wire walker and schema decoding
+npm run build       # wasm + typecheck + tests + bundle -> web/dist
 ```
+
+`npm run build` deliberately does not run the engine tests — it is the deploy path, and its job is
+to produce `web/dist`. CI runs them as their own step, before it.
 
 The `protoc` targets point at the live service by default. To develop against a local one, set
 `VITE_PROTOC_ENDPOINT` — `VITE_PROTOC_ENDPOINT=http://localhost:8787 npm run dev` alongside
