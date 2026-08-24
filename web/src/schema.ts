@@ -154,11 +154,11 @@ export function initSchemaView(): void {
 
     // the decoder is local whatever the schema view is set to, so it wins while it is on screen
     const remote = protoc !== undefined && location.hash.replace('#', '') !== 'decode';
-    privacyBadge.textContent = remote ? 'uses protoc.protobuf-net.dev' : 'runs locally';
+    privacyBadge.textContent = remote ? 'compiled on a server' : 'runs locally';
     privacyBadge.setAttribute(
       'title',
       remote
-        ? 'protoc is a native compiler: pressing Generate sends this schema to protoc.protobuf-net.dev'
+        ? 'protoc is a native compiler and cannot run in the browser: pressing Generate sends this schema to a server'
         : 'Nothing you paste leaves your browser',
     );
   }
@@ -207,7 +207,7 @@ export function initSchemaView(): void {
     } catch (error) {
       // an abort is this code superseding itself, and has nothing to report
       if (controller.signal.aborted || token !== generation) return;
-      renderMessages(messages, [], `could not reach protoc.protobuf-net.dev: ${String(error)}`);
+      renderMessages(messages, [], `could not reach the protoc service: ${String(error)}`);
       markStale('outdated — press Generate');
     } finally {
       if (token === generation) {

@@ -69,7 +69,7 @@ export function readResponse(status: number, body: string): GenerateResponse {
 
   if (!parsed || !Array.isArray(parsed.files) || !Array.isArray(parsed.errors)) {
     const detail = body.trim().slice(0, 200) || '(no detail)';
-    return { files: [], errors: [], exception: `protoc.protobuf-net.dev replied ${status}: ${detail}` };
+    return { files: [], errors: [], exception: `the protoc service replied ${status}: ${detail}` };
   }
   return { files: parsed.files, errors: parsed.errors, ...(parsed.exception ? { exception: parsed.exception } : {}) };
 }
