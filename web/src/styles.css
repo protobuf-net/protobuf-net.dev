@@ -768,7 +768,9 @@ details[open] > summary .twisty:not(.empty) {
 .app-footer {
   flex: none;
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
   padding: 8px 16px;
   border-top: 1px solid var(--border);
   background: var(--bg-raised);
@@ -776,8 +778,42 @@ details[open] > summary .twisty:not(.empty) {
   color: var(--text-dim);
 }
 
-.app-footer span:last-child {
+/* the note takes the slack, so the version stays left and the sponsor links stay right */
+.app-footer .footer-note {
   margin-left: auto;
+}
+
+.footer-sponsor {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-sponsor a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.footer-sponsor a:hover {
+  text-decoration: underline;
+}
+
+/* colour on hover only: enough to be findable, quiet enough not to nag */
+.footer-sponsor .sponsor-heart:hover {
+  color: #db61a2;
+}
+
+.footer-sponsor .sponsor-coffee:hover {
+  color: #b8860b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .footer-sponsor .sponsor-coffee:hover {
+    color: #e0b558;
+  }
 }
 
 /* ------------------------------ boot overlay ---------------------------- */
