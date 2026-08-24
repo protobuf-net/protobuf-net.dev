@@ -40,14 +40,15 @@
                 <option value="vb">VB.NET</option>
               </optgroup>
               <!-- filled from PROTOC_LANGUAGES, so the picker and the service cannot disagree -->
-              <optgroup label="protoc — on protoc.protobuf-net.dev" id="opt-language-protoc"></optgroup>
+              <optgroup label="protoc — compiled on a server" id="opt-language-protoc"></optgroup>
             </select>
           </label>
           <button type="button" class="ghost remote-only" id="run-protoc">Generate</button>
+          <!-- the host is deliberately not named here or in the footer; what the user needs to
+               know is that this one leaves the browser, not where it goes -->
           <span class="note remote-only">
-            compiled by <code>protoc</code> on
-            <a href="https://protoc.protobuf-net.dev" rel="noopener">protoc.protobuf-net.dev</a> —
-            your schema is sent there when you press Generate
+            compiled with <code>protoc</code> — your schema is sent to a server when you press
+            Generate
           </span>
           <label id="opt-langver-wrap" class="net-only">
             Version
@@ -137,8 +138,7 @@
       <span id="engine-version">loading engine…</span>
       <span>
         C#, VB.NET and payload decoding run in your browser via WebAssembly and are never uploaded.
-        protoc's own languages are compiled on
-        <a href="https://protoc.protobuf-net.dev" rel="noopener">protoc.protobuf-net.dev</a>.
+        protoc's own languages are compiled with <code>protoc</code> on a server.
       </span>
     </footer>
 
