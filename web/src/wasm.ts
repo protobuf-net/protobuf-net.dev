@@ -1,8 +1,15 @@
-import type { DecodeResult, GenerateRequest, GenerateResponse } from './types';
+import type {
+  DecodeRequest,
+  DecodeResult,
+  GenerateRequest,
+  GenerateResponse,
+  SchemaTypesResult,
+} from './types';
 
 interface Interop {
   Generate(requestJson: string): string;
-  Decode(data: Uint8Array, fullStrings: boolean): string;
+  Decode(data: Uint8Array, requestJson: string): string;
+  SchemaTypes(requestJson: string): string;
   EmbeddedProto(path: string): string;
   EngineVersion(): string;
 }
@@ -41,9 +48,18 @@ export async function generate(request: GenerateRequest): Promise<GenerateRespon
   return JSON.parse(interop.Generate(JSON.stringify(request))) as GenerateResponse;
 }
 
-export async function decode(data: Uint8Array, fullStrings: boolean): Promise<DecodeResult> {
+export async function decode(data: Uint8Array, request: DecodeRequest): Promise<DecodeResult> {
   const interop = await loadInterop();
-  return JSON.parse(interop.Decode(data, fullStrings)) as DecodeResult;
+  return JSON.parse(interop.Decode(data, JSON.stringify(request))) as DecodeResult;
+}
+
+/**
+ * Lists the messages a schema declares, so the decode view can offer them as root types. The
+ * engine remembers the last schema it parsed, so asking this and then decoding costs one parse.
+ */
+export async function schemaTypes(request: DecodeRequest): Promise<SchemaTypesResult> {
+  const interop = await loadInterop();
+  return JSON.parse(interop.SchemaTypes(JSON.stringify(request))) as SchemaTypesResult;
 }
 
 /** Reads a .proto embedded in protobuf-net.Reflection, e.g. "google/protobuf/descriptor.proto". */

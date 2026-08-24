@@ -1,4 +1,3 @@
-using Google.Protobuf.Reflection;
 using ProtoBuf.Reflection;
 
 namespace ProtoGen.Wasm;
@@ -19,29 +18,11 @@ internal static class Codegen
         var response = new GenerateResponse();
         try
         {
-            var set = new FileDescriptorSet();
             string fileName = string.IsNullOrWhiteSpace(request.FileName) ? "my.proto" : request.FileName.Trim();
-            set.Add(fileName, includeInOutput: true, new StringReader(request.Schema ?? ""));
-            set.Process();
-
-            bool fatal = false;
-            foreach (var error in set.GetErrors())
-            {
-                response.Errors.Add(new SchemaError
-                {
-                    IsError = error.IsError,
-                    LineNumber = error.LineNumber,
-                    ColumnNumber = error.ColumnNumber,
-                    Length = error.Text?.Length ?? 0,
-                    Message = error.Message,
-                    ErrorNumber = error.ErrorNumber,
-                    File = error.File ?? "",
-                });
-                if (error.IsError) fatal = true;
-            }
+            var set = SchemaSource.Parse(request.Schema, fileName, response.Errors);
 
             // warnings are worth showing alongside output; errors mean there is no output to show
-            if (fatal) return response;
+            if (response.Errors.Any(error => error.IsError)) return response;
 
             var generator = ResolveGenerator(request.Language);
             var normalizer = ResolveNormalizer(request.NamingConvention);

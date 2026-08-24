@@ -467,6 +467,73 @@ button.ghost:disabled {
   color: var(--error);
 }
 
+/* ------------------------- decode: optional schema ---------------------- */
+
+.schema-panel {
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+.schema-panel > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+.schema-panel > summary::-webkit-details-marker,
+.schema-panel > summary::marker {
+  display: none;
+  content: '';
+}
+
+.schema-panel > summary:hover {
+  background: var(--bg-sunken);
+}
+
+.schema-panel > summary .note {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.schema-panel[open] > summary {
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+/* names the message being decoded against while the panel is shut, where the tree cannot */
+.schema-state {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.schema-state.warn {
+  color: var(--warning);
+}
+
+.schema-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.schema-panel-body .editor {
+  flex: none;
+  height: 30vh;
+  min-height: 140px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
 .tree-wrap {
   flex: 1;
   min-height: 0;
@@ -582,6 +649,35 @@ details[open] > summary .twisty:not(.empty) {
 
 .chip-offset {
   border-style: dashed;
+}
+
+/* what the schema says: the name leads, the declared type qualifies it, and the rest are
+   exceptions worth noticing */
+.chip-name {
+  color: var(--text);
+  border-color: var(--border-strong);
+  font-weight: 600;
+}
+
+.chip-type {
+  background: var(--bg-sunken);
+}
+
+.chip-oneof,
+.chip-extension {
+  font-style: italic;
+}
+
+.chip-unknown {
+  color: var(--warning);
+  border-color: var(--warning);
+  background: var(--warning-bg);
+}
+
+.chip-mismatch {
+  color: var(--error);
+  border-color: var(--error);
+  background: var(--error-bg);
 }
 
 .primary {

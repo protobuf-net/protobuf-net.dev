@@ -2,7 +2,7 @@
 
 The site behind **[protobuf-net.dev](https://protobuf-net.dev)**: generate C# and
 VB.NET from `.proto` schemas, reach `protoc` for the languages Google's compiler provides, and
-pull apart raw protobuf payloads without a schema.
+pull apart raw protobuf payloads — with a schema to name the fields, or without one.
 
 The site is a folder of static files. C#, VB.NET and payload decoding run in the browser through
 WebAssembly, so a schema or payload pasted into either of those never leaves the machine it was
@@ -18,8 +18,9 @@ This replaces the older ASP.NET-hosted site that lived in the
 
 | Layer | What it is |
 | --- | --- |
-| `src/ProtoGen.Wasm` | .NET 10 targeting `net10.0-browser` via `Microsoft.NET.Sdk.WebAssembly` — **not** Blazor. Exposes three `[JSExport]` methods and nothing else. |
-| `web` | Plain TypeScript + Vite. CodeMirror 6 for both editors. No UI framework. |
+| `src/ProtoGen.Wasm` | .NET 10 targeting `net10.0-browser` via `Microsoft.NET.Sdk.WebAssembly` — **not** Blazor. Exposes five `[JSExport]` methods and nothing else. |
+| `src/ProtoGen.Wasm.Tests` | xunit over the same sources, on plain `net10.0`. Compiles them in rather than referencing the project: a browser-targeted assembly full of `[JSExport]` will not load in a test host. |
+| `web` | Plain TypeScript + Vite. CodeMirror 6 for every editor. No UI framework. |
 
 The schema work is done by the published [`protobuf-net.Reflection`](https://www.nuget.org/packages/protobuf-net.Reflection)
 package — the same parser and generators as the `protogen` command-line tool. Imports of
@@ -33,6 +34,67 @@ malformed input, neither of which a serializer's reader is built to give.
 Total download is roughly 1.7 MB brotli-compressed, most of which is the .NET runtime, cached
 after first visit.
 
+## Decoding against a schema
+
+The decode view takes an optional `.proto` alongside the payload. With one, every field carries its
+name and declared type, and the readings the wire format cannot choose between — string, bytes,
+sub-message, packed scalars — collapse to the one the schema asked for. Both halves were already
+here; the join is `Decoder.cs`, which is the only file that knows about schema text *and* payloads.
+
+Three things are worth knowing about the design:
+
+- **A guessed root type is labelled as one.** Nothing in a payload says which message it is, so
+  when the user has not said, `RootChooser.cs` works it out — see below — and everything downstream
+  carries `rootGuessed`. An inferred type that happens to be wrong is the most misleading thing
+  this view can produce, so it is never presented as though someone had chosen it.
+- **The bytes win.** Where the payload contradicts the schema — a wire type that does not match the
+  declared one, a `string` holding invalid UTF-8, a sub-message that will not parse — the field is
+  flagged and then read as if there were no schema. Rendering a mismatch as the declared type would
+  hide the exact bug the tool was opened to find.
+- **A schema that fails to parse still helps.** Its diagnostics travel with the decode and the
+  fields it did understand are still named, rather than the whole thing falling back to guesswork.
+
+### Working out which message a payload is
+
+The payload is read once as every message the schema declares, and the reads are compared. The
+scoring rule is the part that is easy to get wrong:
+
+**Only agreement counts.** A message scores on how many fields it recognises, and fields it has
+never heard of are not held against it. A payload carrying unknown fields is the normal condition
+of protobuf — it is what a service that has moved on from the schema you have to hand sends, and
+unknown fields are meant to survive a round trip untouched. Scoring on the *share* of fields
+recognised would punish the right message for that, and would go further wrong on nesting: a
+message that decomposes a sub-message which is itself newer than the schema would rank below one
+that writes the same bytes off as opaque `bytes`, which is backwards.
+
+**Contradictions are different, and close to disqualifying.** If the schema declares field 3 a
+`string` and the payload wrote a varint there, this is not the message that wrote it — reusing a
+field number with an incompatible type is the one thing protobuf's compatibility rules forbid,
+which is what `reserved` exists to prevent. But a message that contradicts nothing *because it
+declares nothing the payload contains* is the worst answer available, not the safest, so
+recognising something and disagreeing about a corner still beats recognising nothing at all.
+
+Ties fall to the order the schema declares its messages in, which is the closest thing a `.proto`
+has to saying which message is the point of the file — and this is why `RootCandidates` is in
+declaration order with the user's own file ahead of its imports, rather than alphabetised. A tie
+broken that way is then reported rather than hidden: the UI marks it with a warning and names what
+else fits, because at that point it is a coin toss and only the user can settle it.
+
+Ranking is skipped for schemas with more than 48 messages or payloads over 128 KB, where it would
+cost more than the guess is worth; the first message declared is used and the note says so instead
+of implying anything was measured.
+
+### The rest of the shape
+
+`SchemaIndex.cs` flattens the descriptor into the two lookups the walker actually needs — field
+number to declared type, enum number to name — and `SchemaSource.cs` remembers the last schema it
+parsed, so typing in the payload box does not reparse the schema beside it.
+
+The JS boundary carries this as JSON: `Decode(payload, requestJson)` takes the schema and an
+optional root type alongside the bytes — omitting the root type is what asks the engine to work one
+out — and `SchemaTypes(requestJson)` lists the messages a schema declares, for the picker. Both go
+through the same remembered parse.
+
 ## Building
 
 Requires the .NET 10 SDK and Node 20+.
@@ -40,10 +102,14 @@ Requires the .NET 10 SDK and Node 20+.
 ```sh
 cd web
 npm install
-npm run dev      # publishes the WASM project, then starts Vite on :5180
-npm test         # vitest, unit tests for the payload parsing
-npm run build    # wasm + typecheck + tests + bundle -> web/dist
+npm run dev         # publishes the WASM project, then starts Vite on :5180
+npm test            # vitest, unit tests for reading pasted hex and base-64
+npm run test:engine # dotnet test, unit tests for the wire walker and schema decoding
+npm run build       # wasm + typecheck + tests + bundle -> web/dist
 ```
+
+`npm run build` deliberately does not run the engine tests — it is the deploy path, and its job is
+to produce `web/dist`. CI runs them as their own step, before it.
 
 The `protoc` targets point at the live service by default. To develop against a local one, set
 `VITE_PROTOC_ENDPOINT` — `VITE_PROTOC_ENDPOINT=http://localhost:8787 npm run dev` alongside
