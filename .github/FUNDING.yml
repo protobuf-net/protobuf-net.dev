@@ -1,0 +1,5 @@
+# Puts the Sponsor button on this repository, alongside the two links in the site's own footer.
+# Both keys are GitHub's own platform names rather than `custom` URLs, so each renders with the
+# service it belongs to rather than as an anonymous link.
+github: [protobuf-net]
+buy_me_a_coffee: marcgravell
