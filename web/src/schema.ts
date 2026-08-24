@@ -2,7 +2,15 @@ import type { EditorView } from '@codemirror/view';
 import { createEditor, setContent, setLanguage, showErrors, clearErrors, type LanguageName } from './editor';
 import { generate, embeddedProto } from './wasm';
 import { samples } from './samples';
-import type { GenerateRequest, GeneratedFile, SchemaError } from './types';
+import {
+  PROTOC_LANGUAGES,
+  SCHEMA_FILE,
+  generateWithProtoc,
+  protocLanguage,
+  protocValue,
+  type ProtocLanguage,
+} from './protoc';
+import type { GenerateRequest, GenerateResponse, GeneratedFile, SchemaError } from './types';
 
 const LANGUAGE_VERSIONS: Record<string, string[]> = {
   csharp: ['7.1', '6', '3', '2'],
@@ -19,7 +27,7 @@ export function initSchemaView(): void {
     parent: required('#schema-editor'),
     doc: DEFAULT_SCHEMA,
     language: 'protobuf',
-    onChange: () => scheduleGenerate(),
+    onChange: () => scheduleGenerate('edit'),
   });
 
   const outputEditor = createEditor({
@@ -31,17 +39,29 @@ export function initSchemaView(): void {
   const optionsForm = required<HTMLFormElement>('#schema-options');
   const languageSelect = required<HTMLSelectElement>('#opt-language');
   const langverSelect = required<HTMLSelectElement>('#opt-langver');
+  const protocGroup = required<HTMLOptGroupElement>('#opt-language-protoc');
+  const runButton = required<HTMLButtonElement>('#run-protoc');
   const messages = required('#schema-messages');
   const fileTabs = required('#file-tabs');
   const copyButton = required<HTMLButtonElement>('#copy-output');
   const samplePicker = required<HTMLSelectElement>('#sample-picker');
   const outputPane = required('#output-pane');
+  const staleBadge = required('#stale-badge');
+  const privacyBadge = required('#privacy-badge');
 
   let files: GeneratedFile[] = [];
   let currentFile = 0;
   let timer: number | undefined;
   let generation = 0;
   let activeOutputLanguage: LanguageName = 'csharp';
+  let inFlight: AbortController | undefined;
+
+  for (const language of PROTOC_LANGUAGES) {
+    const option = document.createElement('option');
+    option.value = protocValue(language);
+    option.textContent = language.label;
+    protocGroup.append(option);
+  }
 
   for (const sample of samples) {
     const option = document.createElement('option');
@@ -57,7 +77,7 @@ export function initSchemaView(): void {
 
     if (sample.schema !== undefined) {
       setContent(schemaEditor, sample.schema);
-      scheduleGenerate();
+      scheduleGenerate('edit');
       return;
     }
     if (sample.embedded === undefined) return;
@@ -70,14 +90,23 @@ export function initSchemaView(): void {
         renderMessages(messages, [], `could not load ${sample.embedded}: ${String(error)}`);
         return;
       }
-      scheduleGenerate();
+      scheduleGenerate('edit');
     })();
   });
 
+  // Picking a target is itself the decision to use it, so this generates even for a protoc target;
+  // what does not happen automatically is sending the schema again on every later keystroke.
   optionsForm.addEventListener('change', () => {
     populateLanguageVersions();
-    scheduleGenerate();
+    applyMode();
+    scheduleGenerate('option');
   });
+
+  runButton.addEventListener('click', () => void runGenerate());
+
+  // the badge in the header answers "where is my schema going", and switching to the payload
+  // decoder changes the answer as surely as switching language does
+  window.addEventListener('hashchange', applyMode);
 
   copyButton.addEventListener('click', async () => {
     const file = files[currentFile];
@@ -88,6 +117,7 @@ export function initSchemaView(): void {
   });
 
   populateLanguageVersions();
+  applyMode();
   void runGenerate();
 
   function populateLanguageVersions(): void {
@@ -110,24 +140,92 @@ export function initSchemaView(): void {
     langverSelect.value = versions.includes(previous) ? previous : '';
   }
 
-  function scheduleGenerate(): void {
+  /** Reflects where the selected target is compiled, in the options bar and in the header. */
+  function applyMode(): void {
+    const protoc = protocLanguage(languageSelect.value);
+    optionsForm.classList.toggle('remote', protoc !== undefined);
+
+    // switching away mid-request abandons that request, and its own reset will not fire: the
+    // button would otherwise still read "Generating…" and be dead when the user came back
+    if (!protoc) {
+      runButton.disabled = false;
+      runButton.textContent = 'Generate';
+    }
+
+    // the decoder is local whatever the schema view is set to, so it wins while it is on screen
+    const remote = protoc !== undefined && location.hash.replace('#', '') !== 'decode';
+    privacyBadge.textContent = remote ? 'uses protoc.protobuf-net.dev' : 'runs locally';
+    privacyBadge.setAttribute(
+      'title',
+      remote
+        ? 'protoc is a native compiler: pressing Generate sends this schema to protoc.protobuf-net.dev'
+        : 'Nothing you paste leaves your browser',
+    );
+  }
+
+  function scheduleGenerate(trigger: 'edit' | 'option'): void {
+    // Editing never reaches protoc.protobuf-net.dev on its own. Debounced keystrokes are fine for
+    // a generator running in this tab and rude for one running on somebody's server, and "my
+    // schema is uploaded as I type" is not a promise worth making on the user's behalf.
+    if (trigger === 'edit' && protocLanguage(languageSelect.value)) {
+      markStale('outdated — press Generate');
+      return;
+    }
     if (timer !== undefined) clearTimeout(timer);
     timer = setTimeout(() => void runGenerate(), DEBOUNCE_MS) as unknown as number;
   }
 
   async function runGenerate(): Promise<void> {
+    const protoc = protocLanguage(languageSelect.value);
+    if (protoc) {
+      await runProtoc(protoc);
+      return;
+    }
+
     const token = ++generation;
     const request = buildRequest(optionsForm, schemaEditor);
     const response = await generate(request);
 
     // a later keystroke already superseded this run
     if (token !== generation) return;
+    applyResponse(response, request.language === 'vb' ? 'vb' : 'csharp');
+  }
 
+  async function runProtoc(language: ProtocLanguage): Promise<void> {
+    const token = ++generation;
+    inFlight?.abort();
+    const controller = new AbortController();
+    inFlight = controller;
+
+    runButton.disabled = true;
+    runButton.textContent = 'Generating…';
+    try {
+      const schema = schemaEditor.state.doc.toString();
+      const response = await generateWithProtoc(language, schema, controller.signal);
+      if (token !== generation) return;
+      applyResponse(response, language.editor);
+    } catch (error) {
+      // an abort is this code superseding itself, and has nothing to report
+      if (controller.signal.aborted || token !== generation) return;
+      renderMessages(messages, [], `could not reach protoc.protobuf-net.dev: ${String(error)}`);
+      markStale('outdated — press Generate');
+    } finally {
+      if (token === generation) {
+        runButton.disabled = false;
+        runButton.textContent = 'Generate';
+      }
+    }
+  }
+
+  function applyResponse(response: GenerateResponse, outputLanguage: LanguageName): void {
     renderMessages(messages, response.errors, response.exception);
-    showErrors(schemaEditor, response.errors);
+    // diagnostics against an imported file have line numbers into that file, not this one
+    showErrors(
+      schemaEditor,
+      response.errors.filter((error) => !error.file || error.file === SCHEMA_FILE),
+    );
     if (response.errors.length === 0) clearErrors(schemaEditor);
 
-    const outputLanguage: LanguageName = request.language === 'vb' ? 'vb' : 'csharp';
     if (activeOutputLanguage !== outputLanguage) {
       activeOutputLanguage = outputLanguage;
       setLanguage(outputEditor, outputLanguage);
@@ -144,8 +242,14 @@ export function initSchemaView(): void {
       // keep the last good output rather than blanking the pane while the user is mid-edit,
       // but mark it, so nobody copies code that no longer matches the schema on screen
       copyButton.disabled = files.length === 0;
-      outputPane.classList.toggle('stale', files.length > 0);
+      markStale('outdated — fix the errors below');
     }
+  }
+
+  function markStale(reason: string): void {
+    if (files.length === 0) return;
+    staleBadge.textContent = reason;
+    outputPane.classList.add('stale');
   }
 
   function renderFileTabs(): void {
@@ -178,7 +282,7 @@ function buildRequest(form: HTMLFormElement, editor: EditorView): GenerateReques
   const version = (data.get('languageVersion') as string | null) ?? '';
   return {
     schema: editor.state.doc.toString(),
-    fileName: 'my.proto',
+    fileName: SCHEMA_FILE,
     language,
     languageVersion: version === '' ? null : version,
     namingConvention: (data.get('namingConvention') as GenerateRequest['namingConvention']) ?? 'auto',
@@ -202,9 +306,12 @@ function renderMessages(container: Element, errors: SchemaError[], exception?: s
   if (errors.length === 0) return;
 
   for (const error of errors) {
-    const where = `line ${error.lineNumber}, col ${error.columnNumber}`;
+    // protoc reports some problems against an import, and some — a missing file, say — with no
+    // position at all; protobuf-net always has both, so neither prefix appears on that path
+    const file = error.file && error.file !== SCHEMA_FILE ? `${error.file}: ` : '';
+    const where = error.lineNumber > 0 ? `line ${error.lineNumber}, col ${error.columnNumber}: ` : '';
     container.append(
-      message(error.isError ? 'error' : 'warning', `${where}: ${error.message}`),
+      message(error.isError ? 'error' : 'warning', `${file}${where}${error.message}`),
     );
   }
 }
