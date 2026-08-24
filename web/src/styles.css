@@ -801,6 +801,13 @@ details[open] > summary .twisty:not(.empty) {
   text-align: center;
 }
 
+/* added under the spinner when a boot drags on; the spinner stays, because it still might arrive */
+.boot-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .spinner {
   width: 28px;
   height: 28px;
