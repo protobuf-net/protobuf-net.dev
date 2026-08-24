@@ -19,9 +19,20 @@ internal sealed class SchemaIndex
 
     public static readonly SchemaIndex Empty = new();
 
-    /// <summary>Every message in the schema, map entries excluded: the root picker's contents.</summary>
+    private int _declared;
+
+    /// <summary>
+    /// Every message in the schema, map entries excluded: the root picker's contents, and the
+    /// candidates a payload is matched against.
+    /// </summary>
+    /// <remarks>
+    /// In declaration order, with the file the user supplied ahead of anything it imports. That
+    /// order carries real information — a .proto's first message is usually its point, and nothing
+    /// a schema imports is what the user is holding a payload of — and alphabetising it throws
+    /// that away.
+    /// </remarks>
     public IEnumerable<SchemaMessage> RootCandidates
-        => _messages.Values.Where(m => !m.IsMapEntry).OrderBy(m => m.DisplayName, StringComparer.Ordinal);
+        => _messages.Values.Where(m => !m.IsMapEntry).OrderBy(m => m.Order);
 
     public SchemaMessage? Message(string? fullName)
         => fullName is not null && _messages.TryGetValue(fullName, out var found) ? found : null;
@@ -47,7 +58,9 @@ internal sealed class SchemaIndex
         var fields = new List<(SchemaField Field, FieldDescriptorProto Descriptor)>();
         var extensions = new List<(string Extendee, SchemaField Field)>();
 
-        foreach (var file in set.Files)
+        // OrderByDescending is stable, so this puts the file the user supplied first and leaves
+        // everything else in the order the set already had it
+        foreach (var file in set.Files.OrderByDescending(file => file.IncludeInOutput))
         {
             string package = string.IsNullOrEmpty(file.Package) ? "" : "." + file.Package;
             foreach (var message in file.MessageTypes) index.AddMessage(package, package, message, fields, extensions);
@@ -87,7 +100,7 @@ internal sealed class SchemaIndex
         List<(string, SchemaField)> extensions)
     {
         string fullName = $"{prefix}.{message.Name}";
-        var entry = new SchemaMessage(fullName, message.Options?.MapEntry == true);
+        var entry = new SchemaMessage(fullName, message.Options?.MapEntry == true) { Order = _declared++ };
         _messages[fullName] = entry;
 
         foreach (var field in message.Fields)
@@ -212,6 +225,9 @@ internal sealed class SchemaMessage(string fullName, bool isMapEntry)
     public string DisplayName { get; } = fullName.TrimStart('.');
     public bool IsMapEntry { get; } = isMapEntry;
     public Dictionary<int, SchemaField> Fields { get; } = [];
+
+    /// <summary>Where this was declared, counting from the top of the file the user supplied.</summary>
+    public required int Order { get; init; }
 
     public SchemaField? Field(int number) => Fields.TryGetValue(number, out var found) ? found : null;
 }

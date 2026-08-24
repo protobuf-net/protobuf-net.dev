@@ -95,13 +95,14 @@ public class SchemaDecodeTests
     }
 
     [Fact]
-    public void ARootTypeIsRequiredBeforeAnythingIsNamed()
+    public void AnUnstatedRootTypeIsInferredAndSaidToBeInferred()
     {
-        var result = Decode(Schema, rootType: null, Payload.New().String(1, "hi"));
+        var result = Decode(Schema, rootType: null, Payload.New().String(1, "hi").Varint(2, 150));
 
-        Assert.Null(result.RootType);
-        Assert.Contains("choose the message", result.SchemaNote);
-        Assert.Null(result.Nodes[0].Name);
+        Assert.Equal("demo.Person", result.RootType);
+        Assert.True(result.RootGuessed);
+        Assert.Equal("name", result.Nodes[0].Name);
+        Assert.Contains("guessed", result.SchemaNote);
     }
 
     [Fact]
@@ -387,6 +388,142 @@ public class SchemaDecodeTests
     {
         var types = Decoder.Types(new DecodeRequest { Schema = Schema }).Types;
 
-        Assert.Equal(["demo.Address", "demo.Person"], types);
+        // declaration order, not alphabetical: a .proto's first message is usually its point
+        Assert.Equal(["demo.Person", "demo.Address"], types);
+    }
+}
+
+/// <summary>
+/// Covers working out which message a payload is when nobody has said, which is inference rather
+/// than decoding, and wrong often enough to be worth pinning down.
+/// </summary>
+public class RootChoiceTests
+{
+    private const string Schema = """
+        syntax = "proto3";
+        package demo;
+
+        message Envelope {
+          string id = 1;
+          Body body = 2;
+        }
+
+        message Body {
+          string text = 1;
+          int32 count = 2;
+        }
+
+        message Unrelated {
+          bool flag = 7;
+        }
+
+        message Contradicting {
+          int32 id = 1;
+        }
+        """;
+
+    private static DecodeResult Decode(string schema, Payload payload)
+        => Decoder.Decode(payload.ToArray(), new DecodeRequest { Schema = schema, FullStrings = true });
+
+    [Fact]
+    public void TheMessageThatRecognisesMostOfThePayloadWins()
+    {
+        // Body would account for field 1 alone; Envelope accounts for it and everything inside
+        // field 2, which is what makes it the better answer
+        var result = Decode(
+            Schema,
+            Payload.New().String(1, "e-1").Message(2, Payload.New().String(1, "hi").Varint(2, 3)));
+
+        Assert.Equal("demo.Envelope", result.RootType);
+        Assert.True(result.RootGuessed);
+        Assert.Null(result.RootAlternatives);
+    }
+
+    [Fact]
+    public void AMessageThePayloadContradictsIsNotChosen()
+    {
+        // Contradicting declares field 1 an int32 and the payload wrote a string there; that is
+        // the one change protobuf's compatibility rules forbid, so it cannot be this message
+        var result = Decode(Schema, Payload.New().String(1, "hi"));
+
+        Assert.Equal("demo.Envelope", result.RootType);
+    }
+
+    [Fact]
+    public void FieldsTheSchemaDoesNotDeclareDoNotCountAgainstIt()
+    {
+        // the payload is a Body from a service that has moved on; the extra fields are exactly what
+        // an older schema is expected to see, and must not push the ranking towards a message that
+        // recognises less of it
+        var result = Decode(
+            Schema,
+            Payload.New().String(1, "hi").Varint(2, 3).String(30, "added").Varint(31, 9).Varint(32, 9));
+
+        Assert.Equal("demo.Body", result.RootType);
+        Assert.Equal(3, result.UnknownFields);
+        Assert.Equal(["text", "count"], result.Nodes.Take(2).Select(node => node.Name));
+    }
+
+    [Fact]
+    public void AnEqualFitIsReportedRatherThanPresentedAsAnAnswer()
+    {
+        // field 1 as a string is all Envelope and Body have in common with this payload, and with
+        // each other; declaration order picks one, and the other is named as just as likely
+        var result = Decode(Schema, Payload.New().String(1, "hi").Varint(99, 1));
+
+        Assert.Equal("demo.Envelope", result.RootType);
+        Assert.Equal(["demo.Body"], result.RootAlternatives);
+        Assert.Contains("exactly as well", result.SchemaNote);
+    }
+
+    [Fact]
+    public void AStatedRootTypeIsNeverSecondGuessed()
+    {
+        var result = Decoder.Decode(
+            Payload.New().String(1, "e-1").Message(2, Payload.New().String(1, "hi")).ToArray(),
+            new DecodeRequest { Schema = Schema, RootType = "demo.Body" });
+
+        Assert.Equal("demo.Body", result.RootType);
+        Assert.False(result.RootGuessed);
+        Assert.Null(result.SchemaNote);
+    }
+
+    [Fact]
+    public void APayloadNoMessageRecognisesIsLeftAlone()
+    {
+        // field 9 appears in none of these messages, so there is nothing to choose between them
+        var result = Decode(Schema, Payload.New().Varint(9, 1));
+
+        Assert.Null(result.RootType);
+        Assert.False(result.RootGuessed);
+        Assert.Contains("recognises a single field", result.SchemaNote);
+    }
+
+    [Fact]
+    public void AMessageIsStillChosenWhenTheBestOneContradictsSomething()
+    {
+        // field 1 holds a fixed32, which Envelope declares a string; everything else agrees with
+        // Envelope and nothing else comes close, so it is still the answer - as long as the
+        // disagreement is said out loud rather than rendered as though it were fine
+        var result = Decode(
+            Schema,
+            Payload.New().Fixed32(1, 7).Message(2, Payload.New().String(1, "hi").Varint(2, 3)));
+
+        Assert.Equal("demo.Envelope", result.RootType);
+        Assert.True(result.RootGuessed);
+        Assert.Contains("contradicts", result.SchemaNote);
+    }
+
+    [Fact]
+    public void RecognisingNothingLosesToRecognisingSomethingAndDisagreeing()
+    {
+        // Unrelated declares only field 7, which this payload does not have, so it contradicts
+        // nothing - but only by having nothing to say about any of it. That is the worst answer
+        // available, not the safest one, and it must not outrank a message that explains a field
+        // and disagrees about another.
+        var result = Decode(Schema, Payload.New().Fixed32(1, 7).String(2, "hi"));
+
+        Assert.Equal("demo.Envelope", result.RootType);
+        Assert.Contains("contradicts", result.SchemaNote);
     }
 }

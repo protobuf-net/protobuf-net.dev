@@ -43,9 +43,10 @@ here; the join is `Decoder.cs`, which is the only file that knows about schema t
 
 Three things are worth knowing about the design:
 
-- **The root type is asked for, never guessed.** Nothing in a payload says which message it is, and
-  the wrong choice decodes to confident nonsense. The picker offers every message the schema
-  declares and chooses only when there is exactly one.
+- **A guessed root type is labelled as one.** Nothing in a payload says which message it is, so
+  when the user has not said, `RootChooser.cs` works it out — see below — and everything downstream
+  carries `rootGuessed`. An inferred type that happens to be wrong is the most misleading thing
+  this view can produce, so it is never presented as though someone had chosen it.
 - **The bytes win.** Where the payload contradicts the schema — a wire type that does not match the
   declared one, a `string` holding invalid UTF-8, a sub-message that will not parse — the field is
   flagged and then read as if there were no schema. Rendering a mismatch as the declared type would
@@ -53,13 +54,46 @@ Three things are worth knowing about the design:
 - **A schema that fails to parse still helps.** Its diagnostics travel with the decode and the
   fields it did understand are still named, rather than the whole thing falling back to guesswork.
 
+### Working out which message a payload is
+
+The payload is read once as every message the schema declares, and the reads are compared. The
+scoring rule is the part that is easy to get wrong:
+
+**Only agreement counts.** A message scores on how many fields it recognises, and fields it has
+never heard of are not held against it. A payload carrying unknown fields is the normal condition
+of protobuf — it is what a service that has moved on from the schema you have to hand sends, and
+unknown fields are meant to survive a round trip untouched. Scoring on the *share* of fields
+recognised would punish the right message for that, and would go further wrong on nesting: a
+message that decomposes a sub-message which is itself newer than the schema would rank below one
+that writes the same bytes off as opaque `bytes`, which is backwards.
+
+**Contradictions are different, and close to disqualifying.** If the schema declares field 3 a
+`string` and the payload wrote a varint there, this is not the message that wrote it — reusing a
+field number with an incompatible type is the one thing protobuf's compatibility rules forbid,
+which is what `reserved` exists to prevent. But a message that contradicts nothing *because it
+declares nothing the payload contains* is the worst answer available, not the safest, so
+recognising something and disagreeing about a corner still beats recognising nothing at all.
+
+Ties fall to the order the schema declares its messages in, which is the closest thing a `.proto`
+has to saying which message is the point of the file — and this is why `RootCandidates` is in
+declaration order with the user's own file ahead of its imports, rather than alphabetised. A tie
+broken that way is then reported rather than hidden: the UI marks it with a warning and names what
+else fits, because at that point it is a coin toss and only the user can settle it.
+
+Ranking is skipped for schemas with more than 48 messages or payloads over 128 KB, where it would
+cost more than the guess is worth; the first message declared is used and the note says so instead
+of implying anything was measured.
+
+### The rest of the shape
+
 `SchemaIndex.cs` flattens the descriptor into the two lookups the walker actually needs — field
 number to declared type, enum number to name — and `SchemaSource.cs` remembers the last schema it
 parsed, so typing in the payload box does not reparse the schema beside it.
 
-The JS boundary carries this as JSON: `Decode(payload, requestJson)` takes the schema and root type
-alongside the bytes, and `SchemaTypes(requestJson)` lists the messages a schema declares, for the
-picker. Both go through the same remembered parse.
+The JS boundary carries this as JSON: `Decode(payload, requestJson)` takes the schema and an
+optional root type alongside the bytes — omitting the root type is what asks the engine to work one
+out — and `SchemaTypes(requestJson)` lists the messages a schema declares, for the picker. Both go
+through the same remembered parse.
 
 ## Building
 

@@ -40,6 +40,18 @@ internal sealed class DecodeResult
     /// <summary>The message the top-level fields were read as; null when no schema was applied.</summary>
     public string? RootType { get; set; }
 
+    /// <summary>
+    /// True when nothing said which message this was and it was inferred from the bytes. The UI
+    /// must say so: an inferred type that happens to be wrong is the most misleading thing here.
+    /// </summary>
+    public bool RootGuessed { get; set; }
+
+    /// <summary>
+    /// Messages the payload fits exactly as well as the one it was read as. Null when the choice
+    /// was clear; non-empty means the tie was broken by declaration order and nothing else.
+    /// </summary>
+    public List<string>? RootAlternatives { get; set; }
+
     /// <summary>Diagnostics from parsing the schema, if one was supplied.</summary>
     public List<SchemaError>? SchemaErrors { get; set; }
 

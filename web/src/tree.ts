@@ -15,8 +15,11 @@ import type { DecodeResult, Node, Reading } from './types';
 export function renderTree(container: Element, result: DecodeResult): void {
   container.replaceChildren();
 
-  // why the rows are unlabelled, said where the unlabelled rows are
-  if (result.schemaNote) container.append(note('info', result.schemaNote));
+  // how much the labels below can be trusted, said where the labels are. A guess that another
+  // message fits just as well is a coin toss, and reads as a warning rather than a remark.
+  if (result.schemaNote) {
+    container.append(note(result.rootAlternatives?.length ? 'warning' : 'info', result.schemaNote));
+  }
 
   if (result.nodes.length === 0 && !result.error) {
     container.append(note('info', 'No fields found — the payload is empty.'));

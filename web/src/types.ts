@@ -102,6 +102,10 @@ export interface DecodeResult {
   truncated: boolean;
   /** the message the top-level fields were read as; absent when no schema was applied */
   rootType?: string;
+  /** nothing said which message this was, so it was inferred from the bytes */
+  rootGuessed?: boolean;
+  /** messages that fit exactly as well; present only when the tie went to declaration order */
+  rootAlternatives?: string[];
   schemaErrors?: SchemaError[];
   /** why a supplied schema was not applied */
   schemaNote?: string;

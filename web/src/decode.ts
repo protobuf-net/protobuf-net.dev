@@ -43,6 +43,11 @@ export function initDecodeView(): void {
 
   // set when the payload came from a file that was too big to mirror into the textarea
   let fileBytes: Uint8Array | undefined;
+
+  // The message the *user* picked, which is not the same thing as the one the picker is showing:
+  // with nothing chosen the engine infers one from the bytes and the picker displays it, and that
+  // display must never harden into a choice the user never made.
+  let chosenType: string | undefined;
   let payloadTimer: number | undefined;
   let schemaTimer: number | undefined;
   let generation = 0;
@@ -62,7 +67,10 @@ export function initDecodeView(): void {
   optionsForm.addEventListener('change', () => schedule());
 
   // choosing the message the payload is an instance of is the other half of supplying a schema
-  schemaOptions.addEventListener('change', () => schedule());
+  schemaOptions.addEventListener('change', () => {
+    chosenType = rootSelect.value || undefined;
+    schedule();
+  });
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files?.[0];
@@ -108,6 +116,7 @@ export function initDecodeView(): void {
     cancelSchema();
     void (async () => {
       await refreshTypes();
+      chosenType = sample.rootType;
       rootSelect.value = sample.rootType;
       await run();
     })();
@@ -171,10 +180,9 @@ export function initDecodeView(): void {
   }
 
   function setTypeOptions(types: string[]): void {
-    const previous = rootSelect.value;
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = types.length === 0 ? 'no messages in this schema' : 'choose a message…';
+    placeholder.textContent = types.length === 0 ? 'no messages in this schema' : 'work it out from the payload';
     rootSelect.replaceChildren(placeholder);
 
     for (const type of types) {
@@ -184,10 +192,10 @@ export function initDecodeView(): void {
       rootSelect.append(option);
     }
 
-    // choosing for the user is only safe when there is nothing to choose between: nothing in the
-    // bytes says which message they are, and the wrong one decodes to confident nonsense
-    if (types.includes(previous)) rootSelect.value = previous;
-    else rootSelect.value = types.length === 1 ? types[0]! : '';
+    // an edit that removes the message the user picked drops the choice with it, rather than
+    // leaving a selection pointing at a type the schema no longer has
+    if (chosenType !== undefined && !types.includes(chosenType)) chosenType = undefined;
+    rootSelect.value = chosenType ?? '';
   }
 
   function buildRequest(): DecodeRequest {
@@ -197,7 +205,8 @@ export function initDecodeView(): void {
       fileName: SCHEMA_FILE,
     };
     if (schema.trim().length > 0) request.schema = schema;
-    if (rootSelect.value) request.rootType = rootSelect.value;
+    // sending no root type is what asks the engine to work one out
+    if (chosenType) request.rootType = chosenType;
     return request;
   }
 
@@ -208,16 +217,24 @@ export function initDecodeView(): void {
       schemaState.textContent = '';
       return;
     }
-    if (!rootSelect.value) {
-      schemaState.textContent = 'no message chosen';
+
+    const type = chosenType ?? result?.rootType;
+    if (!type) {
+      schemaState.textContent = 'no message fits';
       schemaState.classList.add('warn');
       return;
     }
+
+    // an inferred type reads exactly like a chosen one unless it is marked, and an inferred type
+    // that happens to be wrong is the most misleading thing this view can show
+    const parts = [type];
+    if (result?.rootGuessed) parts.push('guessed');
     const unknown = result?.unknownFields ?? 0;
-    schemaState.textContent =
-      unknown > 0
-        ? `${rootSelect.value} · ${unknown} field${unknown === 1 ? '' : 's'} not in the schema`
-        : rootSelect.value;
+    if (unknown > 0) parts.push(`${unknown} field${unknown === 1 ? '' : 's'} not in the schema`);
+
+    const ambiguous = (result?.rootAlternatives?.length ?? 0) > 0;
+    schemaState.textContent = `${ambiguous ? '⚠ ' : ''}${parts.join(' · ')}`;
+    if (ambiguous) schemaState.classList.add('warn');
   }
 
   async function run(): Promise<void> {
@@ -251,6 +268,10 @@ export function initDecodeView(): void {
 
     const result = await decode(bytes, request);
     if (token !== generation) return;
+
+    // show what the engine settled on, without recording it as the user's answer: chosenType stays
+    // unset, so a later edit is free to arrive at a different one
+    if (!chosenType) rootSelect.value = result.rootType ?? '';
 
     renderTree(tree, result);
     toolbar.hidden = result.nodes.length === 0;
