@@ -35,8 +35,10 @@
           <label>
             Language
             <select name="language" id="opt-language">
+              <!-- the generator is named in the option itself, not just the group: a collapsed
+                   select shows only the option's own text, and "C#" alone now means two things -->
               <optgroup label="protobuf-net — in your browser">
-                <option value="csharp">C#</option>
+                <option value="csharp">C# (protobuf-net)</option>
                 <option value="vb">VB.NET</option>
               </optgroup>
               <!-- filled from PROTOC_LANGUAGES, so the picker and the service cannot disagree -->
