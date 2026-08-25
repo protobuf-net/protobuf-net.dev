@@ -1,5 +1,4 @@
 using Google.Protobuf.Reflection;
-using ProtoBuf;
 using Xunit;
 
 namespace ProtoGen.Wasm.Tests;
@@ -41,7 +40,7 @@ public class DescriptorSetDecodeTests
         Assert.DoesNotContain(set.GetErrors(), error => error.IsError);
 
         using var ms = new MemoryStream();
-        Serializer.Serialize(ms, set);
+        set.Serialize(FileDescriptorSet.Serializer, ms, includeImports: true);
         return ms.ToArray();
     }
 
