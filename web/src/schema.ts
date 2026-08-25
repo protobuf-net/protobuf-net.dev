@@ -22,25 +22,12 @@ const DEFAULT_SCHEMA = samples[0]!.schema ?? '';
 /** Small enough that regenerating on every keystroke is fine; this just avoids thrashing. */
 const DEBOUNCE_MS = 250;
 
-let latestSchema = DEFAULT_SCHEMA;
-
-/**
- * The .proto this view currently holds, so the decode view can offer to borrow it. Kept here
- * rather than read out of the DOM, because the editor's document is the authority on its own text.
- */
-export function schemaViewText(): string {
-  return latestSchema;
-}
-
 export function initSchemaView(): void {
   const schemaEditor = createEditor({
     parent: required('#schema-editor'),
     doc: DEFAULT_SCHEMA,
     language: 'protobuf',
-    onChange: (value) => {
-      latestSchema = value;
-      scheduleGenerate('edit');
-    },
+    onChange: () => scheduleGenerate('edit'),
   });
 
   const outputEditor = createEditor({
@@ -58,6 +45,7 @@ export function initSchemaView(): void {
   const fileTabs = required('#file-tabs');
   const copyButton = required<HTMLButtonElement>('#copy-output');
   const samplePicker = required<HTMLSelectElement>('#sample-picker');
+  const schemaFile = required<HTMLInputElement>('#schema-file');
   const outputPane = required('#output-pane');
   const staleBadge = required('#stale-badge');
   const privacyBadge = required('#privacy-badge');
@@ -101,6 +89,25 @@ export function initSchemaView(): void {
         setContent(schemaEditor, await embeddedProto(sample.embedded!));
       } catch (error) {
         renderMessages(messages, [], `could not load ${sample.embedded}: ${String(error)}`);
+        return;
+      }
+      scheduleGenerate('edit');
+    })();
+  });
+
+  // The file is read here in the browser; opening one sends nothing anywhere, exactly as if its
+  // text had been pasted in. What happens on generate is unchanged, and the badge still says so.
+  schemaFile.addEventListener('change', () => {
+    const file = schemaFile.files?.[0];
+    // so that picking the same file again reloads it, rather than being a no-op change event
+    schemaFile.value = '';
+    if (!file) return;
+
+    void (async () => {
+      try {
+        setContent(schemaEditor, await file.text());
+      } catch (error) {
+        renderMessages(messages, [], `could not read ${file.name}: ${String(error)}`);
         return;
       }
       scheduleGenerate('edit');
