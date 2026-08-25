@@ -22,6 +22,9 @@
 
   <ItemGroup>
     <PackageReference Include="protobuf-net.Reflection" Version="3.3.21" />
+    <!-- protobuf-net.Reflection brings only protobuf-net.Core, which has no concrete TypeModel;
+         DescriptorSetDecodeTests needs one to serialize a FileDescriptorSet into a payload. -->
+    <PackageReference Include="protobuf-net" Version="3.3.21" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
