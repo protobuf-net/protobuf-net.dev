@@ -80,6 +80,10 @@
                   <option value="">Load a sample…</option>
                 </select>
               </label>
+              <label class="file">
+                <input type="file" id="schema-file" accept=".proto,text/plain" />
+                <span>Or open a .proto…</span>
+              </label>
             </div>
             <div class="editor" id="schema-editor"></div>
           </div>
@@ -146,7 +150,10 @@
                   <option value="">choose a message…</option>
                 </select>
               </label>
-              <button type="button" class="ghost" id="copy-schema">Copy from Schema &rarr; code</button>
+              <label class="file">
+                <input type="file" id="decode-schema-file" accept=".proto,text/plain" />
+                <span>Or open a .proto…</span>
+              </label>
             </form>
             <div class="editor" id="decode-schema-editor"></div>
             <div class="messages" id="decode-schema-messages" aria-live="polite"></div>

@@ -3,7 +3,6 @@ import { parsePayload, formatBytes, toHex, type PayloadFormat } from './payload'
 import { renderTree, setAllOpen } from './tree';
 import { createEditor, setContent, showErrors, clearErrors } from './editor';
 import { decodeSamples } from './decodeSamples';
-import { schemaViewText } from './schema';
 import type { DecodeRequest, DecodeResult, SchemaError } from './types';
 
 const DEBOUNCE_MS = 200;
@@ -33,7 +32,7 @@ export function initDecodeView(): void {
   const rootSelect = required<HTMLSelectElement>('#opt-root-type');
   const schemaMessages = required('#decode-schema-messages');
   const schemaState = required('#decode-schema-state');
-  const copySchemaButton = required<HTMLButtonElement>('#copy-schema');
+  const schemaFile = required<HTMLInputElement>('#decode-schema-file');
 
   const schemaEditor = createEditor({
     parent: required('#decode-schema-editor'),
@@ -122,11 +121,27 @@ export function initDecodeView(): void {
     })();
   });
 
-  copySchemaButton.addEventListener('click', () => {
-    setContent(schemaEditor, schemaViewText());
-    schemaPanel.open = true;
-    cancelSchema();
-    void refreshSchema();
+  // Read here in the browser, like the payload file above it: the schema names the fields for a
+  // decode that is already happening locally, so opening one sends nothing anywhere.
+  schemaFile.addEventListener('change', () => {
+    const file = schemaFile.files?.[0];
+    // so that picking the same file again reloads it, rather than being a no-op change event
+    schemaFile.value = '';
+    if (!file) return;
+
+    void (async () => {
+      let text: string;
+      try {
+        text = await file.text();
+      } catch (error) {
+        renderMessages(schemaMessages, [], `could not read ${file.name}: ${String(error)}`);
+        return;
+      }
+      setContent(schemaEditor, text);
+      schemaPanel.open = true;
+      cancelSchema();
+      await refreshSchema();
+    })();
   });
 
   // the editor is built inside a closed disclosure, so it has nothing to measure against until

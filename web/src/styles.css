@@ -431,20 +431,23 @@ button.ghost:disabled {
   font-size: 13px;
 }
 
-.options label.file {
+.options label.file,
+.pane-head label.file {
   position: relative;
   overflow: hidden;
   cursor: pointer;
 }
 
-.options label.file input[type='file'] {
+.options label.file input[type='file'],
+.pane-head label.file input[type='file'] {
   position: absolute;
   inset: 0;
   opacity: 0;
   cursor: pointer;
 }
 
-.options label.file span {
+.options label.file span,
+.pane-head label.file span {
   padding: 4px 10px;
   border: 1px dashed var(--border-strong);
   border-radius: 4px;
